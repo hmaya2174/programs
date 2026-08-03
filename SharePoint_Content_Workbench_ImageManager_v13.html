@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SharePoint Content Workbench</title>
+<style>
+:root{
+  --blue:#0f6cbd;--blue2:#0b5594;--dark:#12344d;--bg:#f4f6f8;--panel:#fff;
+  --border:#d6dde6;--muted:#667085;--good:#107c10;--warn:#986f0b;--bad:#b42318
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:#242424}
+header{background:var(--dark);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+header h1{font-size:21px;margin:0} header small{opacity:.85}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+main{max-width:1500px;margin:auto;padding:16px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:9px;box-shadow:0 5px 18px rgba(0,0,0,.06);margin-bottom:14px}
+.card h2{margin:0;padding:11px 13px;border-bottom:1px solid var(--border);font-size:15px;background:#f8fafc}
+.body{padding:13px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+button,input,textarea,select{font:inherit}
+button{border:1px solid var(--border);border-radius:6px;background:#fff;padding:8px 11px;font-weight:700;cursor:pointer}
+button:hover{background:#f1f5f9}.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.primary:hover{background:var(--blue2)}
+.danger{color:var(--bad)}.success{color:var(--good)}
+input,textarea,select{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;background:#fff}
+textarea{min-height:180px;resize:vertical;font-family:Consolas,monospace;font-size:12px}
+.status{padding:9px 10px;border:1px solid #bfd7ee;background:#eef6ff;border-radius:6px;font-size:13px}
+.good{border-color:#afd7af;background:#edf7ed;color:#0b5d1e}.warn{border-color:#ead18a;background:#fff8e1;color:#6d5100}.bad{border-color:#efb2ac;background:#fdecec;color:#8f1d14}
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.metric{border:1px solid var(--border);border-radius:7px;padding:9px;background:#fff}
+.metric strong{display:block;font-size:19px}.metric span{font-size:12px;color:var(--muted)}
+.workspace{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}
+.list{max-height:740px;overflow:auto}.item{border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:8px;cursor:pointer;background:#fff}
+.item:hover{background:#f7fafc}.item.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(15,108,189,.12)}
+.item h3{font-size:13px;margin:0 0 5px}.item p{margin:0;color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:5px;border-bottom:1px solid var(--border);padding:8px 10px 0;flex-wrap:wrap}
+.tabs button.active{background:#e8f1fb;color:#0b4f8a}.pane{padding:15px;min-height:650px}.hidden{display:none}
+.toolbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}.toolbar button,.toolbar select{height:34px}
+#editor{min-height:520px;border:1px solid var(--border);border-radius:6px;padding:20px;background:#fff;outline:none;line-height:1.45}
+#editor img.workbench-selected-image{outline:3px solid var(--blue)!important;outline-offset:3px;box-shadow:0 0 0 4px rgba(15,108,189,.14)}
+.image-selection-status{margin-top:7px;font-size:12px;font-weight:700;color:var(--blue)}
+#editor img,#wholePage img,#selectedPreview img{max-width:100%;height:auto}
+#editor table,#wholePage table,#selectedPreview table{border-collapse:collapse;max-width:100%}
+#editor td,#editor th,#wholePage td,#wholePage th,#selectedPreview td,#selectedPreview th{border:1px solid #bbb;padding:7px}
+.code{width:100%;min-height:560px}
+.small{font-size:12px;color:var(--muted)} details{margin-top:10px} summary{cursor:pointer;font-weight:700}
+.image-bar,.table-bar{border:1px solid var(--border);border-radius:7px;padding:10px;margin:10px 0;background:#fafcff}
+.inspector-grid{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 10px;margin-top:8px;font-size:12px}
+.inspector-grid strong{color:#344054}.inspector-grid span,.inspector-grid input{word-break:break-word}
+.selection-note{font-size:12px;font-weight:700;color:var(--blue);margin-top:7px}
+#editor td.workbench-selected-cell,#editor th.workbench-selected-cell{outline:3px solid var(--blue);outline-offset:-3px;background:#eef6ff}
+.image-bar .row{margin-top:7px}
+.project-note{font-size:12px;color:var(--muted);margin-top:6px}
+#queueTable th{background:#f8fafc;position:sticky;top:0;z-index:1}
+#queueTable td{border:1px solid #d6dde6;padding:6px;vertical-align:top;font-size:12px}
+#queueTable img{max-width:70px;max-height:55px;display:block;margin:auto}
+.queue-url{max-width:220px;word-break:break-all}
+@media(max-width:1000px){.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<div><h1>SharePoint Content Workbench</h1><small>Load once, edit locally, save as a project, copy back to SharePoint</small></div>
+<div class="header-actions">
+<button id="newProject">New</button>
+<button id="openProject">Open Project</button>
+<button id="saveProject">Save Project</button>
+<button id="copySelected" class="primary">Copy Selected Web Part</button>
+<button id="copyAll">Copy Entire Page</button>
+</div>
+</header>
+
+<main>
+<section class="card">
+<h2>1. Import from SharePoint</h2>
+<div class="body">
+<div class="row">
+<input id="pageUrl" placeholder="https://.../SitePages/Page.aspx">
+<button id="loadPage" class="primary">Load Page</button>
+<button id="refreshPage">Refresh from SharePoint</button>
+</div>
+<div id="status" class="status" style="margin-top:9px">Enter a SharePoint page URL. The page is read once and then edited locally.</div>
+<details>
+<summary>Fallback for loading</summary>
+<div class="row"><input id="restUrl" readonly><button id="copyRest">Copy REST URL</button></div>
+<textarea id="rawResponse" placeholder="Paste REST XML or JSON response"></textarea>
+<button id="parsePasted">Parse Response</button>
+</details>
+</div>
+</section>
+
+<section class="card">
+<h2>Project summary</h2>
+<div class="body">
+<div class="metrics">
+<div class="metric"><strong id="mParts">0</strong><span>Text web parts</span></div>
+<div class="metric"><strong id="mLinks">0</strong><span>Links</span></div>
+<div class="metric"><strong id="mImages">0</strong><span>Images</span></div>
+<div class="metric"><strong id="mTables">0</strong><span>Tables</span></div>
+<div class="metric"><strong id="mHeadings">0</strong><span>Headings</span></div>
+<div class="metric"><strong id="mChanged">0</strong><span>Changed web parts</span></div>
+</div>
+<div id="projectStatus" class="project-note">No project loaded.</div>
+</div>
+</section>
+
+<div class="workspace">
+<section class="card">
+<h2>Text web parts</h2>
+<div class="body list" id="webpartList"><div class="small">No page loaded.</div></div>
+</section>
+
+<section class="card">
+<div class="tabs">
+<button class="active" data-tab="editPane">Edit</button>
+<button data-tab="pagePane">Entire Page</button>
+<button data-tab="previewPane">Selected Preview</button>
+<button data-tab="htmlPane">HTML</button>
+<button data-tab="comparePane">Original vs Edited</button>
+<button data-tab="queuePane">Image Remediation Queue</button>
+</div>
+
+<div id="editPane" class="pane">
+<div class="toolbar">
+<select id="blockStyle">
+<option value="p">Normal text</option><option value="h2">Heading 2</option><option value="h3">Heading 3</option><option value="blockquote">Quote</option>
+</select>
+<button data-cmd="bold"><b>B</b></button><button data-cmd="italic"><i>I</i></button><button data-cmd="underline"><u>U</u></button>
+<button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button>
+<button data-cmd="justifyLeft">Left</button><button data-cmd="justifyCenter">Centre</button><button data-cmd="justifyRight">Right</button>
+<button id="addLink">Link</button><button data-cmd="unlink">Unlink</button><button data-cmd="undo">Undo</button><button data-cmd="redo">Redo</button>
+</div>
+
+<div class="image-bar">
+<strong>Image controls</strong>
+<div class="small">Normal click selects one image. Ctrl/Shift-click adds or removes images from the selection.</div>
+<div class="row" style="margin-top:7px">
+<button id="selectAllImages">Select all images</button>
+<button id="clearImageSelection">Clear selection</button>
+</div>
+<div id="imageSelectionStatus" class="image-selection-status">0 images selected</div>
+<div id="imageInspector" class="inspector-grid">
+<strong>Stored width</strong><span id="currentImageWidth">—</span>
+<strong>Stored height</strong><span id="currentImageHeight">—</span>
+<strong>Natural width</strong><span id="naturalImageWidth">—</span>
+<strong>Natural height</strong><span id="naturalImageHeight">—</span>
+<strong>Image source</strong><span id="currentImageSource">—</span>
+<strong>Linked destination</strong><span id="currentImageLink">—</span>
+<strong>SharePoint folder</strong><span id="currentImageFolder">—</span>
+<strong>Upload location</strong><span id="currentImageLibrary">—</span>
+<strong>Alt text</strong><span id="currentImageAlt">—</span>
+</div>
+<div class="row" style="margin-top:7px">
+<button id="openImageSource">Open image source</button>
+<button id="copyImageSource">Copy image URL</button>
+<button id="copyImageLink">Copy destination URL</button>
+</div>
+<div class="row" style="margin-top:7px">
+<input id="replaceImageSource" type="url" placeholder="New SharePoint image URL">
+<button id="applyImageSource">Replace source locally</button>
+</div>
+<div class="row" style="margin-top:7px">
+<button id="generateResizePrompt" class="primary">Generate Copilot Resize Prompt</button>
+<button id="copyResizePrompt">Copy Prompt</button>
+</div>
+<textarea id="resizePrompt" style="min-height:190px;margin-top:7px" placeholder="The generated Copilot prompt will appear here."></textarea>
+<div class="small">For the most reliable result, attach the original image to Copilot. An authenticated SharePoint image URL may not always be retrievable directly by Copilot.</div>
+<div class="row">
+<input id="imgWidth" type="number" placeholder="Width in px">
+<input id="imgHeight" type="number" placeholder="Height in px">
+<label><input id="keepRatio" type="checkbox" checked> Keep ratio</label>
+<button id="applyImageSize">Apply to selected</button>
+</div>
+<div class="row">
+<button data-imgsize="250">Small</button><button data-imgsize="450">Medium</button><button data-imgsize="700">Large</button>
+<button data-imgalign="left">Align left</button><button data-imgalign="center">Centre</button><button data-imgalign="right">Align right</button>
+</div>
+</div>
+
+<div class="table-bar">
+<strong>Table controls</strong>
+<div class="small">Click inside a table cell to select it. The selected row and column can then be edited.</div>
+<div id="tableSelectionStatus" class="selection-note">No table cell selected</div>
+<div class="inspector-grid">
+<strong>Rows</strong><span id="tableRows">—</span>
+<strong>Columns</strong><span id="tableColumns">—</span>
+<strong>Selected row</strong><span id="selectedRow">—</span>
+<strong>Selected column</strong><span id="selectedColumn">—</span>
+<strong>Table width</strong><span id="tableWidthDisplay">—</span>
+<strong>Alignment</strong><span id="tableAlignmentDisplay">—</span>
+</div>
+<div class="row" style="margin-top:7px">
+<button id="rowAbove">Insert row above</button>
+<button id="rowBelow">Insert row below</button>
+<button id="deleteRow">Delete row</button>
+</div>
+<div class="row" style="margin-top:7px">
+<button id="colLeft">Insert column left</button>
+<button id="colRight">Insert column right</button>
+<button id="deleteCol">Delete column</button>
+</div>
+<div class="row" style="margin-top:7px">
+<button id="toggleHeader">Toggle header row</button>
+<button id="mergeRight">Merge with right</button>
+<button id="splitCell">Split selected cell</button>
+</div>
+<div class="row" style="margin-top:7px">
+<input id="tableWidth" type="text" placeholder="Table width, e.g. 100% or 700px">
+<select id="tableAlign">
+<option value="">Alignment</option>
+<option value="left">Left</option>
+<option value="center">Centre</option>
+<option value="right">Right</option>
+</select>
+<button id="applyTableSettings">Apply table settings</button>
+</div>
+</div>
+
+<div id="editor" contenteditable="true"></div>
+<div class="row" style="margin-top:10px">
+<button id="applyLocal" class="primary">Apply Changes to Project</button>
+<button id="copyCurrentEditor" class="primary">Copy This Web Part for SharePoint</button>
+<button id="resetPart">Reset Selected Web Part</button>
+</div>
+<div id="editStatus" class="status" style="margin-top:9px">Select a Text web part.</div>
+</div>
+
+<div id="pagePane" class="pane hidden"><div id="wholePage"></div></div>
+<div id="previewPane" class="pane hidden"><div id="selectedPreview"></div></div>
+<div id="htmlPane" class="pane hidden"><textarea id="htmlCode" class="code"></textarea><button id="applyHtml" class="primary">Apply HTML to Project</button></div>
+<div id="comparePane" class="pane hidden">
+<div class="row">
+<div><h3>Original</h3><textarea id="originalCode" class="code" readonly></textarea></div>
+<div><h3>Edited</h3><textarea id="editedCode" class="code" readonly></textarea></div>
+</div>
+</div>
+<div id="queuePane" class="pane hidden">
+<div class="row" style="margin-bottom:10px">
+<button id="refreshQueue">Refresh Queue</button>
+<button id="selectQueueAll">Select All</button>
+<button id="clearQueueAll">Clear Selection</button>
+<button id="downloadQueueSelected" class="primary">Download Selected Images</button>
+<button id="copyBatchPrompt" class="primary">Copy Batch Copilot Prompt</button>
+</div>
+
+<div class="row" style="margin-bottom:10px">
+<input id="bulkTargetWidth" type="number" placeholder="Bulk target width">
+<input id="bulkTargetHeight" type="number" placeholder="Bulk target height">
+<label><input id="bulkKeepRatio" type="checkbox" checked> Keep ratio</label>
+<select id="bulkStatus">
+<option value="">Set status...</option>
+<option>Not Reviewed</option>
+<option>Needs Resize</option>
+<option>Downloaded</option>
+<option>Sent to Copilot</option>
+<option>Resized</option>
+<option>Uploaded</option>
+<option>Completed</option>
+</select>
+<button id="applyBulkQueue">Apply to Selected</button>
+</div>
+
+<div style="overflow:auto">
+<table id="queueTable" style="width:100%;border-collapse:collapse">
+<thead>
+<tr>
+<th style="border:1px solid #ccc;padding:6px">Select</th>
+<th style="border:1px solid #ccc;padding:6px">Preview</th>
+<th style="border:1px solid #ccc;padding:6px">File</th>
+<th style="border:1px solid #ccc;padding:6px">Current</th>
+<th style="border:1px solid #ccc;padding:6px">Target</th>
+<th style="border:1px solid #ccc;padding:6px">Status</th>
+<th style="border:1px solid #ccc;padding:6px">Folder</th>
+<th style="border:1px solid #ccc;padding:6px">Actions</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<h3>Batch Copilot Prompt</h3>
+<textarea id="batchPrompt" class="code" style="min-height:260px"></textarea>
+</div>
+</section>
+</div>
+
+<input id="projectFile" type="file" accept=".json,.spworkbench" hidden>
+</main>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+let project={
+ version:1,title:'',pageUrl:'',loadedAt:'',originalCanvas:'',webparts:[],selected:0,imageQueue:[]
+};
+let selectedImages=new Set();
+let selectedCell=null;
+
+function setStatus(msg,type=''){const s=$('status');s.textContent=msg;s.className='status'+(type?' '+type:'')}
+function decode(v){const t=document.createElement('textarea');t.innerHTML=v;return t.value}
+function derive(url){
+ const u=new URL(url),marker='/SitePages/',idx=u.pathname.toLowerCase().indexOf(marker.toLowerCase());
+ if(idx<0)throw new Error('URL must point to a page under /SitePages/.');
+ const sitePath=u.pathname.slice(0,idx),filePath=u.pathname;
+ return{api:`${u.origin}${sitePath}/_api/web/GetFileByServerRelativeUrl('${filePath.replace(/'/g,"''")}')/ListItemAllFields?$select=Title,CanvasContent1,FileRef`,origin:u.origin};
+}
+function extractXml(text){
+ const d=new DOMParser().parseFromString(text,'application/xml');if(d.querySelector('parsererror'))throw new Error('Invalid XML.');
+ const nodes=[...d.getElementsByTagName('*')],get=n=>nodes.find(x=>x.localName===n)?.textContent||'';
+ const canvas=get('CanvasContent1');if(!canvas)throw new Error('CanvasContent1 not found.');
+ return{title:get('Title'),canvas:decode(canvas)};
+}
+function extractJson(text){const o=JSON.parse(text),d=o.d||o,c=d.CanvasContent1??d.canvasContent1;if(c==null)throw new Error('CanvasContent1 not found.');return{title:d.Title||'',canvas:c}}
+function parseResponse(text){
+ const t=text.trim(),data=t.startsWith('<')?extractXml(t):extractJson(t);
+ buildProject(data.title,decode(data.canvas));
+}
+function buildProject(title,canvas){
+ const doc=new DOMParser().parseFromString(canvas,'text/html');
+ const controls=[...doc.querySelectorAll('[data-sp-canvascontrol]')];
+ const parts=[];
+ controls.forEach((el,i)=>{
+   const raw=el.getAttribute('data-sp-controldata')||'';let meta={};try{meta=JSON.parse(decode(raw))}catch{}
+   const ct=meta.controlType??meta.ControlType;
+   const rich=!!el.querySelector('p,h1,h2,h3,h4,h5,h6,a,img,table,ul,ol,.imagePlugin,[data-imageurl]');
+   if((ct===4||rich)&&el.innerHTML.trim()){
+     parts.push({id:meta.id||`part-${i+1}`,meta,originalHtml:el.innerHTML,editedHtml:el.innerHTML});
+   }
+ });
+ if(!parts.length&&doc.body.innerHTML.trim()){
+   parts.push({id:'part-1',meta:{},originalHtml:doc.body.innerHTML,editedHtml:doc.body.innerHTML});
+ }
+ project={version:1,title,pageUrl:$('pageUrl').value.trim(),loadedAt:new Date().toISOString(),originalCanvas:canvas,webparts:parts,selected:0,imageQueue:[]};
+ rebuildImageQueue();
+ renderAll();setStatus(`Loaded "${title}" and disconnected for local editing.`,'good');
+}
+function summary(html){
+ const d=document.createElement('div');d.innerHTML=html;
+ return{links:d.querySelectorAll('a[href]').length,images:d.querySelectorAll('img,.imagePlugin,[data-imageurl]').length,tables:d.querySelectorAll('table').length,heads:d.querySelectorAll('h1,h2,h3,h4,h5,h6').length,text:(d.innerText||'').trim().replace(/\s+/g,' ')}
+}
+function imageUrl(block){
+ return block.getAttribute('data-imageurl')||block.getAttribute('data-image-url')||block.querySelector('img')?.getAttribute('src')||'';
+}
+function resolveUrl(raw){
+ if(!raw)return'';const v=decode(raw);
+ try{if(v.startsWith('//'))return location.protocol+v;if(v.startsWith('/'))return new URL(project.pageUrl).origin+v;return new URL(v,project.pageUrl||location.href).href}catch{return v}
+}
+function imageBlockFor(img){
+ return img?.closest('.imagePlugin,[data-imageurl]') || null;
+}
+function imageDestination(block,img){
+ return block?.getAttribute('data-linkurl') ||
+        block?.getAttribute('data-link-url') ||
+        img?.closest('a')?.getAttribute('href') || '';
+}
+function updateImageInspector(){
+ const imgs=[...selectedImages];
+ if(imgs.length!==1){
+   $('currentImageWidth').textContent=imgs.length?`Multiple (${imgs.length})`:'—';
+   $('currentImageHeight').textContent=imgs.length?`Multiple (${imgs.length})`:'—';
+   $('naturalImageWidth').textContent='—';
+   $('naturalImageHeight').textContent='—';
+   $('currentImageSource').textContent='—';
+   $('currentImageLink').textContent='—';
+   $('currentImageFolder').textContent='—';
+   $('currentImageLibrary').textContent='—';
+   $('currentImageAlt').textContent='—';
+   return;
+ }
+ const img=imgs[0],block=imageBlockFor(img);
+ const storedW=block?.getAttribute('data-width') || img.getAttribute('width') || img.style.width || 'Auto';
+ const storedH=block?.getAttribute('data-height') || img.getAttribute('height') || img.style.height || 'Auto';
+ const naturalW=block?.getAttribute('data-imagenaturalwidth') || block?.getAttribute('data-naturalwidth') || img.naturalWidth || '—';
+ const naturalH=block?.getAttribute('data-imagenaturalheight') || block?.getAttribute('data-naturalheight') || img.naturalHeight || '—';
+ $('currentImageWidth').textContent=storedW;
+ $('currentImageHeight').textContent=storedH;
+ $('naturalImageWidth').textContent=naturalW;
+ $('naturalImageHeight').textContent=naturalH;
+ $('currentImageSource').textContent=resolveUrl(imageUrl(block||img));
+ const srcUrl=resolveUrl(imageUrl(block||img));
+ $('currentImageLink').textContent=resolveUrl(imageDestination(block,img)) || 'None';
+ $('currentImageFolder').textContent=imageFolderUrl(srcUrl) || 'None';
+ $('currentImageLibrary').textContent=sharePointLibraryViewUrl(srcUrl) || 'None';
+ $('currentImageAlt').textContent=block?.getAttribute('data-alttext') || img.alt || 'None';
+}
+function clearTableSelection(){
+ if(selectedCell)selectedCell.classList.remove('workbench-selected-cell');
+ selectedCell=null;
+ updateTableInspector();
+}
+function updateTableInspector(){
+ if(!selectedCell){
+   $('tableSelectionStatus').textContent='No table cell selected';
+   ['tableRows','tableColumns','selectedRow','selectedColumn','tableWidthDisplay','tableAlignmentDisplay'].forEach(id=>$(id).textContent='—');
+   return;
+ }
+ const row=selectedCell.parentElement,table=selectedCell.closest('table');
+ const rowIndex=[...table.rows].indexOf(row);
+ const colIndex=[...row.cells].indexOf(selectedCell);
+ $('tableSelectionStatus').textContent=`Cell selected: row ${rowIndex+1}, column ${colIndex+1}`;
+ $('tableRows').textContent=table.rows.length;
+ $('tableColumns').textContent=Math.max(...[...table.rows].map(r=>r.cells.length));
+ $('selectedRow').textContent=rowIndex+1;
+ $('selectedColumn').textContent=colIndex+1;
+ $('tableWidthDisplay').textContent=table.style.width||table.getAttribute('width')||'Auto';
+ $('tableAlignmentDisplay').textContent=table.style.marginLeft==='auto'&&table.style.marginRight==='auto'?'Centre':table.style.marginLeft==='auto'?'Right':'Left';
+}
+
+function hydrate(container){
+ container.querySelectorAll('.imagePlugin,[data-imageurl]').forEach(block=>{
+   let img=block.querySelector('img[data-workbench-preview]');
+   if(!img){img=document.createElement('img');img.dataset.workbenchPreview='true';block.appendChild(img)}
+   img.src=resolveUrl(imageUrl(block));img.alt=block.getAttribute('data-alttext')||block.getAttribute('data-imagetitle')||'';
+   const w=block.getAttribute('data-width')||block.style.width;const h=block.getAttribute('data-height')||block.style.height;
+   if(w)img.style.width=/^\d+$/.test(w)?w+'px':w;if(h)img.style.height=/^\d+$/.test(h)?h+'px':h;
+   img.style.maxWidth='100%';img.style.display='block';
+ });
+}
+function cleanForProject(html){
+ const d=document.createElement('div');d.innerHTML=html;
+ d.querySelectorAll('img[data-workbench-preview]').forEach(i=>i.remove());
+ d.querySelectorAll('.selected-img').forEach(i=>i.classList.remove('selected-img'));
+ return d.innerHTML;
+}
+function cleanForClipboard(html){
+ const d=document.createElement('div');d.innerHTML=html;
+ d.querySelectorAll('.imagePlugin,[data-imageurl]').forEach(block=>{
+   const raw=imageUrl(block),url=resolveUrl(raw);
+   const img=document.createElement('img');img.src=url;img.alt=block.getAttribute('data-alttext')||block.getAttribute('data-imagetitle')||'';
+   const w=block.getAttribute('data-width')||block.style.width;if(w)img.style.width=/^\d+$/.test(w)?w+'px':w;
+   const h=block.getAttribute('data-height')||block.style.height;if(h)img.style.height=/^\d+$/.test(h)?h+'px':h;else img.style.height='auto';
+   img.style.maxWidth='100%';
+   block.replaceWith(img);
+ });
+ d.querySelectorAll('img[data-workbench-preview]').forEach(i=>i.remove());
+ return d.innerHTML;
+}
+function composeWholePage(useEdited=true){
+ return project.webparts.map(p=>useEdited?p.editedHtml:p.originalHtml).join('<hr>');
+}
+function renderAll(){
+ $('pageUrl').value=project.pageUrl||'';
+ $('webpartList').innerHTML='';let L=0,I=0,T=0,H=0,C=0;
+ project.webparts.forEach((p,i)=>{
+   const s=summary(p.editedHtml);L+=s.links;I+=s.images;T+=s.tables;H+=s.heads;if(p.editedHtml!==p.originalHtml)C++;
+   const el=document.createElement('div');el.className='item'+(i===project.selected?' active':'');
+   el.innerHTML=`<h3>Text web part ${i+1}${p.editedHtml!==p.originalHtml?' *':''}</h3><p>${s.text.slice(0,110)||'(No visible text)'}</p><p>${s.links} links · ${s.images} images · ${s.tables} tables</p>`;
+   el.onclick=()=>{project.selected=i;renderAll()};$('webpartList').appendChild(el);
+ });
+ $('mParts').textContent=project.webparts.length;$('mLinks').textContent=L;$('mImages').textContent=I;$('mTables').textContent=T;$('mHeadings').textContent=H;$('mChanged').textContent=C;
+ $('projectStatus').textContent=project.title?`Project: ${project.title} · Loaded ${new Date(project.loadedAt).toLocaleString()} · ${C} changed web part(s)`:'No project loaded.';
+ if(project.webparts.length){
+   const p=project.webparts[project.selected]||project.webparts[0];
+   $('editor').innerHTML=p.editedHtml;hydrate($('editor'));
+   $('selectedPreview').innerHTML=p.editedHtml;hydrate($('selectedPreview'));
+   $('htmlCode').value=p.editedHtml;$('originalCode').value=p.originalHtml;$('editedCode').value=p.editedHtml;
+   $('wholePage').innerHTML=composeWholePage(true);hydrate($('wholePage'));
+   clearImageSelection();
+   clearTableSelection();
+ }
+ updateImageSelectionStatus();
+ updateImageInspector();
+ updateImageInspector();
+}
+async function loadPage(){
+ try{
+   const d=derive($('pageUrl').value.trim());$('restUrl').value=d.api;setStatus('Reading SharePoint page…');
+   const r=await fetch(d.api,{headers:{Accept:'application/json;odata=verbose'},credentials:'include'});if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);
+   parseResponse(await r.text());
+ }catch(e){setStatus(`Load failed: ${e.message}. Use the fallback section if required.`,'warn')}
+}
+$('loadPage').onclick=loadPage;$('refreshPage').onclick=()=>{if(confirm('Refresh from SharePoint and replace the current local project content?'))loadPage()};
+$('pageUrl').oninput=()=>{try{$('restUrl').value=derive($('pageUrl').value.trim()).api}catch{$('restUrl').value=''}};
+$('copyRest').onclick=async()=>{await navigator.clipboard.writeText($('restUrl').value);alert('REST URL copied.')};
+$('parsePasted').onclick=()=>{try{parseResponse($('rawResponse').value)}catch(e){setStatus(e.message,'bad')}};
+
+document.querySelectorAll('[data-cmd]').forEach(b=>b.onclick=()=>{editor.focus();document.execCommand(b.dataset.cmd,false,null)});
+$('blockStyle').onchange=e=>{editor.focus();document.execCommand('formatBlock',false,e.target.value)};
+$('addLink').onclick=()=>{const u=prompt('Link URL:');if(u){editor.focus();document.execCommand('createLink',false,u)}};
+$('applyLocal').onclick=()=>{
+ if(!project.webparts.length)return;
+ project.webparts[project.selected].editedHtml=cleanForProject($('editor').innerHTML);
+ $('editStatus').textContent='Changes saved to the local project.';$('editStatus').className='status good';renderAll();
+};
+$('applyHtml').onclick=()=>{if(!project.webparts.length)return;project.webparts[project.selected].editedHtml=$('htmlCode').value;renderAll()};
+$('resetPart').onclick=()=>{if(!project.webparts.length)return;project.webparts[project.selected].editedHtml=project.webparts[project.selected].originalHtml;renderAll()};
+
+function updateImageSelectionStatus(){
+ const count=selectedImages.size;
+ $('imageSelectionStatus').textContent=`${count} image${count===1?'':'s'} selected`;
+}
+function clearImageSelection(){
+ selectedImages.forEach(img=>{
+   img.classList.remove('workbench-selected-image');
+   img.style.outline='';
+   img.style.outlineOffset='';
+ });
+ selectedImages.clear();
+ updateImageSelectionStatus();
+ updateImageInspector();
+ if(project.imageQueue) renderQueue();
+}
+function selectImage(img,additive){
+ if(!additive) clearImageSelection();
+ if(selectedImages.has(img)){
+   selectedImages.delete(img);
+   img.classList.remove('workbench-selected-image');
+   img.style.outline='';
+   img.style.outlineOffset='';
+ }else{
+   selectedImages.add(img);
+   img.classList.add('workbench-selected-image');
+ }
+ updateImageSelectionStatus();
+}
+$('editor').onclick=e=>{
+ if(e.target.tagName==='IMG'){
+   e.preventDefault();
+   selectImage(e.target,e.ctrlKey||e.metaKey||e.shiftKey);
+ }else if(!(e.ctrlKey||e.metaKey||e.shiftKey)){
+   clearImageSelection();
+   clearTableSelection();
+ }
+ updateImageSelectionStatus();
+ updateImageInspector();
+ if(project.imageQueue) renderQueue();
+};
+$('selectAllImages').onclick=()=>{
+ clearImageSelection();
+ $('editor').querySelectorAll('img').forEach(img=>{
+   selectedImages.add(img);
+   img.classList.add('workbench-selected-image');
+ });
+ updateImageSelectionStatus();
+};
+$('clearImageSelection').onclick=clearImageSelection;
+
+function imageFileName(url){
+ try{
+   const u=new URL(url,project.pageUrl||location.href);
+   const name=decodeURIComponent(u.pathname.split('/').pop()||'resized-image.png');
+   return name || 'resized-image.png';
+ }catch{
+   const clean=(url||'').split('?')[0].split('#')[0];
+   return clean.split('/').pop() || 'resized-image.png';
+ }
+}
+function imageFolderUrl(url){
+ try{
+   const u=new URL(url,project.pageUrl||location.href);
+   const parts=u.pathname.split('/');
+   parts.pop();
+   u.pathname=parts.join('/') || '/';
+   u.search='';
+   u.hash='';
+   return u.href;
+ }catch{
+   const clean=(url||'').split('?')[0].split('#')[0];
+   return clean.substring(0,clean.lastIndexOf('/')+1);
+ }
+}
+function sharePointLibraryViewUrl(url){
+ try{
+   const u=new URL(url,project.pageUrl||location.href);
+   const parts=u.pathname.split('/').filter(Boolean);
+   const sitePagesIndex=parts.findIndex(p=>p.toLowerCase()==='siteassets');
+   const libraryIndex=sitePagesIndex>=0?sitePagesIndex:parts.findIndex(p=>p.toLowerCase().includes('assets'));
+   if(libraryIndex<0)return imageFolderUrl(url);
+   const sitePath='/' + parts.slice(0,libraryIndex).join('/');
+   const folderPath='/' + parts.slice(0,-1).join('/');
+   const view=new URL(`${u.origin}${sitePath}/SiteAssets/Forms/AllItems.aspx`);
+   view.searchParams.set('id',folderPath);
+   return view.href;
+ }catch{
+   return imageFolderUrl(url);
+ }
+}
+
+function buildResizePrompt(){
+ const imgs=[...selectedImages];
+ if(imgs.length!==1)throw new Error('Select exactly one image.');
+ const img=imgs[0],block=imageBlockFor(img);
+ const source=resolveUrl(imageUrl(block||img));
+ const fileName=imageFileName(source);
+ const targetW=$('imgWidth').value.trim() ||
+   block?.getAttribute('data-width') ||
+   img.getAttribute('width') ||
+   Math.round(img.getBoundingClientRect().width||0) || '';
+ const targetH=$('imgHeight').value.trim() ||
+   block?.getAttribute('data-height') ||
+   img.getAttribute('height') ||
+   '';
+ const keep=$('keepRatio').checked;
+ const naturalW=block?.getAttribute('data-imagenaturalwidth') ||
+   block?.getAttribute('data-naturalwidth') ||
+   img.naturalWidth || 'unknown';
+ const naturalH=block?.getAttribute('data-imagenaturalheight') ||
+   block?.getAttribute('data-naturalheight') ||
+   img.naturalHeight || 'unknown';
+ if(!targetW&&!targetH)throw new Error('Enter a target width or height first.');
+
+ const folderUrl=imageFolderUrl(source);
+ const libraryUrl=sharePointLibraryViewUrl(source);
+
+ return `Resize the attached image for use in a modern SharePoint Text web part.
+
+SOURCE IMAGE
+- SharePoint image URL: ${source}
+- Original filename: ${fileName}
+- Original dimensions: ${naturalW} × ${naturalH} pixels
+- SharePoint folder URL: ${folderUrl}
+- SharePoint library/folder view: ${libraryUrl}
+
+REQUIRED OUTPUT
+- Target width: ${targetW || 'calculate proportionally'} pixels
+- Target height: ${targetH || 'calculate proportionally'} pixels
+- ${keep ? 'Preserve the original aspect ratio. Do not stretch or distort the image.' : 'Use the specified width and height exactly.'}
+- Do not crop any content unless cropping is essential to meet the requested dimensions.
+- Preserve clarity, legibility, transparency, and the original image content.
+- Preserve the original file type.
+- Use exactly the same filename: ${fileName}
+- Return the completed resized image as a downloadable file.
+- Do not create a redesigned or AI-generated replacement.
+
+After creating the resized file, provide a concise markdown table with these columns:
+
+| Item | Value |
+|---|---|
+| Download resized image | Provide a clickable download link to the completed file |
+| Filename | ${fileName} |
+| Original dimensions | ${naturalW} × ${naturalH} px |
+| New dimensions | ${targetW || 'proportional'} × ${targetH || 'proportional'} px |
+| Original SharePoint image | ${source} |
+| SharePoint folder | ${folderUrl} |
+| Open upload location | ${libraryUrl} |
+| Replacement instruction | Upload the resized file to the same SharePoint folder and replace the existing file, or upload as a new file if replacement is not permitted |
+
+Make the download link and SharePoint links clickable.
+
+If you cannot access the authenticated SharePoint URL, use the image attached to this prompt instead.`;
+}
+function generateResizePrompt(){
+ try{
+   const prompt=buildResizePrompt();
+   $('resizePrompt').value=prompt;
+   return prompt;
+ }catch(e){
+   alert(e.message);
+   return '';
+ }
+}
+$('generateResizePrompt').onclick=generateResizePrompt;
+$('copyResizePrompt').onclick=async()=>{
+ const prompt=$('resizePrompt').value.trim() || generateResizePrompt();
+ if(!prompt)return;
+ await navigator.clipboard.writeText(prompt);
+ alert('Copilot resize prompt copied.');
+};
+
+$('openImageSource').onclick=()=>{
+ const img=[...selectedImages][0];if(!img||selectedImages.size!==1)return alert('Select one image.');
+ const url=resolveUrl(imageUrl(imageBlockFor(img)||img));if(url)window.open(url,'_blank','noopener');
+};
+$('copyImageSource').onclick=async()=>{
+ const img=[...selectedImages][0];if(!img||selectedImages.size!==1)return alert('Select one image.');
+ await navigator.clipboard.writeText(resolveUrl(imageUrl(imageBlockFor(img)||img)));alert('Image source URL copied.');
+};
+$('copyImageLink').onclick=async()=>{
+ const img=[...selectedImages][0];if(!img||selectedImages.size!==1)return alert('Select one image.');
+ const url=resolveUrl(imageDestination(imageBlockFor(img),img));if(!url)return alert('This image has no linked destination.');
+ await navigator.clipboard.writeText(url);alert('Destination URL copied.');
+};
+$('applyImageSource').onclick=()=>{
+ const img=[...selectedImages][0];if(!img||selectedImages.size!==1)return alert('Select exactly one image.');
+ const value=$('replaceImageSource').value.trim();if(!value)return alert('Enter a replacement image URL.');
+ const block=imageBlockFor(img);
+ if(block)block.setAttribute('data-imageurl',value);
+ img.src=resolveUrl(value);
+ updateImageInspector();
+};
+
+function applyImageWidth(img,w){
+ img.style.width=w+'px';img.setAttribute('width',w);
+ const block=img.closest('.imagePlugin,[data-imageurl]');if(block)block.setAttribute('data-width',w);
+ updateImageInspector();
+}
+$('applyImageSize').onclick=()=>{
+ if(!selectedImages.size)return alert('Select one or more images.');
+ const w=$('imgWidth').value,h=$('imgHeight').value,ratio=$('keepRatio').checked;
+ selectedImages.forEach(img=>{if(w)applyImageWidth(img,w);if(ratio){img.style.height='auto';img.removeAttribute('height')}else if(h){img.style.height=h+'px';img.setAttribute('height',h);const b=img.closest('.imagePlugin,[data-imageurl]');if(b)b.setAttribute('data-height',h)}});
+};
+document.querySelectorAll('[data-imgsize]').forEach(b=>b.onclick=()=>{
+ if(!selectedImages.size)return alert('Select one or more images.');
+ selectedImages.forEach(i=>{
+   applyImageWidth(i,b.dataset.imgsize);
+   i.style.height='auto';
+   i.removeAttribute('height');
+   const block=i.closest('.imagePlugin,[data-imageurl]');
+   if(block)block.removeAttribute('data-height');
+ });
+});
+document.querySelectorAll('[data-imgalign]').forEach(b=>b.onclick=()=>{
+ if(!selectedImages.size)return alert('Select one or more images.');
+ selectedImages.forEach(i=>{
+   const align=b.dataset.imgalign;
+   i.style.display='block';
+   i.style.marginLeft=align==='left'?'0':'auto';
+   i.style.marginRight=align==='right'?'0':'auto';
+   const block=i.closest('.imagePlugin,[data-imageurl]');
+   if(block)block.setAttribute('data-alignment',align);
+ });
+});
+
+
+function requireCell(){
+ if(!selectedCell){alert('Click inside a table cell first.');return null}
+ return selectedCell;
+}
+function blankCell(tag='TD'){const c=document.createElement(tag);c.innerHTML='<br>';return c}
+$('rowAbove').onclick=()=>{
+ const c=requireCell();if(!c)return;const row=c.parentElement,n=row.cloneNode(false);
+ [...row.cells].forEach(cell=>n.appendChild(blankCell(cell.tagName)));
+ row.before(n);selectedCell=n.cells[Math.min(c.cellIndex,n.cells.length-1)];selectedCell.classList.add('workbench-selected-cell');updateTableInspector();
+};
+$('rowBelow').onclick=()=>{
+ const c=requireCell();if(!c)return;const row=c.parentElement,n=row.cloneNode(false);
+ [...row.cells].forEach(cell=>n.appendChild(blankCell(cell.tagName)));
+ row.after(n);selectedCell=n.cells[Math.min(c.cellIndex,n.cells.length-1)];selectedCell.classList.add('workbench-selected-cell');updateTableInspector();
+};
+$('deleteRow').onclick=()=>{
+ const c=requireCell();if(!c)return;const table=c.closest('table'),row=c.parentElement;row.remove();selectedCell=null;if(!table.rows.length)table.remove();updateTableInspector();
+};
+$('colLeft').onclick=()=>{
+ const c=requireCell();if(!c)return;const table=c.closest('table'),idx=c.cellIndex;
+ [...table.rows].forEach(r=>{const ref=r.cells[Math.min(idx,r.cells.length-1)];ref.before(blankCell(ref.tagName))});
+ selectedCell=table.rows[c.parentElement.rowIndex].cells[idx];selectedCell.classList.add('workbench-selected-cell');updateTableInspector();
+};
+$('colRight').onclick=()=>{
+ const c=requireCell();if(!c)return;const table=c.closest('table'),idx=c.cellIndex;
+ [...table.rows].forEach(r=>{const ref=r.cells[Math.min(idx,r.cells.length-1)];ref.after(blankCell(ref.tagName))});
+ updateTableInspector();
+};
+$('deleteCol').onclick=()=>{
+ const c=requireCell();if(!c)return;const table=c.closest('table'),idx=c.cellIndex;
+ [...table.rows].forEach(r=>r.cells[idx]?.remove());selectedCell=null;updateTableInspector();
+};
+$('toggleHeader').onclick=()=>{
+ const c=requireCell();if(!c)return;const table=c.closest('table'),row=table.rows[0];
+ [...row.cells].forEach(old=>{const replacement=document.createElement(old.tagName==='TH'?'td':'th');replacement.innerHTML=old.innerHTML;replacement.colSpan=old.colSpan;replacement.rowSpan=old.rowSpan;old.replaceWith(replacement)});
+ clearTableSelection();
+};
+$('mergeRight').onclick=()=>{
+ const c=requireCell();if(!c)return;const next=c.nextElementSibling;if(!next)return alert('There is no cell to the right.');
+ c.innerHTML=(c.innerHTML||'')+(next.innerHTML?'<br>'+next.innerHTML:'');c.colSpan=(c.colSpan||1)+(next.colSpan||1);next.remove();updateTableInspector();
+};
+$('splitCell').onclick=()=>{
+ const c=requireCell();if(!c)return;
+ if(c.colSpan>1){c.colSpan-=1;c.after(blankCell(c.tagName));}
+ else{const clone=blankCell(c.tagName);c.after(clone);}
+ updateTableInspector();
+};
+$('applyTableSettings').onclick=()=>{
+ const c=requireCell();if(!c)return;const table=c.closest('table'),width=$('tableWidth').value.trim(),align=$('tableAlign').value;
+ if(width){table.style.width=width;table.setAttribute('width',width)}
+ if(align==='center'){table.style.marginLeft='auto';table.style.marginRight='auto'}
+ if(align==='left'){table.style.marginLeft='0';table.style.marginRight='auto'}
+ if(align==='right'){table.style.marginLeft='auto';table.style.marginRight='0'}
+ updateTableInspector();
+};
+
+
+function collectProjectImages(){
+ const images=[];
+ project.webparts.forEach((part,partIndex)=>{
+   const d=document.createElement('div');
+   d.innerHTML=part.editedHtml;
+   d.querySelectorAll('.imagePlugin,[data-imageurl],img').forEach((node,imageIndex)=>{
+     const block=node.matches('.imagePlugin,[data-imageurl]')?node:node.closest('.imagePlugin,[data-imageurl]');
+     const img=node.tagName==='IMG'?node:node.querySelector('img');
+     const raw=block?imageUrl(block):img?.getAttribute('src')||'';
+     const source=resolveUrl(raw);
+     if(!source)return;
+     const key=`${partIndex}:${imageIndex}:${source}`;
+     const file=imageFileName(source);
+     const naturalW=block?.getAttribute('data-imagenaturalwidth')||block?.getAttribute('data-naturalwidth')||img?.naturalWidth||'';
+     const naturalH=block?.getAttribute('data-imagenaturalheight')||block?.getAttribute('data-naturalheight')||img?.naturalHeight||'';
+     const storedW=block?.getAttribute('data-width')||img?.getAttribute('width')||img?.style.width||'';
+     const storedH=block?.getAttribute('data-height')||img?.getAttribute('height')||img?.style.height||'';
+     const prior=(project.imageQueue||[]).find(x=>x.key===key);
+     images.push({
+       key,partIndex,imageIndex,source,file,
+       folder:imageFolderUrl(source),
+       library:sharePointLibraryViewUrl(source),
+       naturalW,naturalH,storedW,storedH,
+       targetW:prior?.targetW||storedW||'',
+       targetH:prior?.targetH||storedH||'',
+       keepRatio:prior?.keepRatio??true,
+       status:prior?.status||'Not Reviewed',
+       selected:prior?.selected||false
+     });
+   });
+ });
+ return images;
+}
+function rebuildImageQueue(){
+ project.imageQueue=collectProjectImages();
+ renderQueue();
+}
+function renderQueue(){
+ const tbody=$('queueTable').querySelector('tbody');
+ tbody.innerHTML='';
+ (project.imageQueue||[]).forEach((item,i)=>{
+   const tr=document.createElement('tr');
+   tr.innerHTML=`
+   <td><input type="checkbox" data-qsel="${i}" ${item.selected?'checked':''}></td>
+   <td><img src="${escapeHtml(item.source)}" alt=""></td>
+   <td>${escapeHtml(item.file)}</td>
+   <td>${escapeHtml(String(item.naturalW||item.storedW||'—'))} × ${escapeHtml(String(item.naturalH||item.storedH||'—'))}</td>
+   <td>
+     <input data-qw="${i}" type="number" value="${escapeHtml(String(item.targetW||''))}" style="width:80px"> ×
+     <input data-qh="${i}" type="number" value="${escapeHtml(String(item.targetH||''))}" style="width:80px">
+   </td>
+   <td>
+     <select data-qs="${i}">
+       ${['Not Reviewed','Needs Resize','Downloaded','Sent to Copilot','Resized','Uploaded','Completed'].map(s=>`<option ${s===item.status?'selected':''}>${s}</option>`).join('')}
+     </select>
+   </td>
+   <td class="queue-url"><a href="${escapeHtml(item.library)}" target="_blank">Open folder</a></td>
+   <td>
+     <button data-download-one="${i}">Download</button>
+     <button data-copy-one="${i}">Prompt</button>
+   </td>`;
+   tbody.appendChild(tr);
+ });
+ tbody.querySelectorAll('[data-qsel]').forEach(el=>el.onchange=()=>project.imageQueue[+el.dataset.qsel].selected=el.checked);
+ tbody.querySelectorAll('[data-qw]').forEach(el=>el.oninput=()=>project.imageQueue[+el.dataset.qw].targetW=el.value);
+ tbody.querySelectorAll('[data-qh]').forEach(el=>el.oninput=()=>project.imageQueue[+el.dataset.qh].targetH=el.value);
+ tbody.querySelectorAll('[data-qs]').forEach(el=>el.onchange=()=>project.imageQueue[+el.dataset.qs].status=el.value);
+ tbody.querySelectorAll('[data-download-one]').forEach(el=>el.onclick=()=>downloadQueueItem(project.imageQueue[+el.dataset.downloadOne]));
+ tbody.querySelectorAll('[data-copy-one]').forEach(el=>el.onclick=async()=>{
+   const prompt=buildSingleQueuePrompt(project.imageQueue[+el.dataset.copyOne]);
+   await navigator.clipboard.writeText(prompt);
+   alert('Prompt copied.');
+ });
+ $('batchPrompt').value=buildBatchPrompt();
+}
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+async function fetchImageBlob(url){
+ const r=await fetch(url,{credentials:'include'});
+ if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);
+ return await r.blob();
+}
+async function downloadQueueItem(item){
+ try{
+   const blob=await fetchImageBlob(item.source);
+   const a=document.createElement('a');
+   a.href=URL.createObjectURL(blob);
+   a.download=item.file;
+   document.body.appendChild(a);
+   a.click();
+   a.remove();
+   URL.revokeObjectURL(a.href);
+   item.status='Downloaded';
+   renderQueue();
+ }catch(e){
+   alert(`Download failed for ${item.file}: ${e.message}. Open the source URL and use Save As.`);
+   window.open(item.source,'_blank','noopener');
+ }
+}
+function buildSingleQueuePrompt(item){
+ return `Resize the attached image for use in a modern SharePoint Text web part.
+
+File: ${item.file}
+Original dimensions: ${item.naturalW||'unknown'} × ${item.naturalH||'unknown'} px
+Target width: ${item.targetW||'proportional'} px
+Target height: ${item.targetH||'proportional'} px
+Maintain aspect ratio: ${item.keepRatio?'Yes':'No'}
+Original SharePoint image: ${item.source}
+SharePoint folder: ${item.folder}
+Upload location: ${item.library}
+
+Requirements:
+- Preserve the original filename and file type.
+- Do not redesign, crop, stretch, or distort the image.
+- Preserve transparency, text clarity, and original colours.
+- Return the resized image as a downloadable file.
+
+After processing, provide a table with:
+| Filename | Original dimensions | New dimensions | Download resized image | SharePoint upload folder |`;
+}
+function buildBatchPrompt(){
+ const selected=(project.imageQueue||[]).filter(x=>x.selected);
+ if(!selected.length)return 'Select one or more images in the queue to generate a batch prompt.';
+ let rows=selected.map(x=>`| ${x.file} | ${x.naturalW||'unknown'} × ${x.naturalH||'unknown'} | ${x.targetW||'proportional'} | ${x.targetH||'proportional'} | ${x.keepRatio?'Yes':'No'} | ${x.source} | ${x.library} |`).join('\n');
+ return `Resize all attached images according to the manifest below.
+
+Requirements:
+1. Process every attached image.
+2. Preserve each original filename and file type.
+3. Do not redesign, crop, stretch, or distort the images.
+4. Preserve transparency, text clarity, and original colours.
+5. Return each resized image as an individual downloadable file.
+6. Do not combine the images into a contact sheet.
+
+| Filename | Original size | Target width | Target height | Keep ratio | SharePoint source | Upload location |
+|---|---|---:|---:|---|---|---|
+${rows}
+
+After processing, provide a completion table:
+| Filename | Status | Original dimensions | New dimensions | Download resized image | SharePoint upload folder |`;
+}
+$('refreshQueue').onclick=rebuildImageQueue;
+$('selectQueueAll').onclick=()=>{project.imageQueue.forEach(x=>x.selected=true);renderQueue()};
+$('clearQueueAll').onclick=()=>{project.imageQueue.forEach(x=>x.selected=false);renderQueue()};
+$('applyBulkQueue').onclick=()=>{
+ const w=$('bulkTargetWidth').value.trim(),h=$('bulkTargetHeight').value.trim(),status=$('bulkStatus').value,keep=$('bulkKeepRatio').checked;
+ project.imageQueue.filter(x=>x.selected).forEach(x=>{if(w)x.targetW=w;if(h)x.targetH=h;x.keepRatio=keep;if(status)x.status=status});
+ renderQueue();
+};
+$('downloadQueueSelected').onclick=async()=>{
+ const selected=project.imageQueue.filter(x=>x.selected);
+ if(!selected.length)return alert('Select one or more images.');
+ if(selected.length>1)alert('Your browser may ask permission to allow multiple downloads.');
+ for(const item of selected){
+   await downloadQueueItem(item);
+   await new Promise(r=>setTimeout(r,350));
+ }
+};
+$('copyBatchPrompt').onclick=async()=>{
+ const prompt=buildBatchPrompt();
+ $('batchPrompt').value=prompt;
+ await navigator.clipboard.writeText(prompt);
+ alert('Batch Copilot prompt copied.');
+};
+
+async function copyRich(html){
+ const cleaned=cleanForClipboard(html),plain=new DOMParser().parseFromString(cleaned,'text/html').body.innerText;
+ try{
+   if(window.ClipboardItem)await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([cleaned],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);
+   else{const d=document.createElement('div');d.innerHTML=cleaned;d.style.position='fixed';d.style.left='-9999px';document.body.appendChild(d);const r=document.createRange();r.selectNodeContents(d);const s=getSelection();s.removeAllRanges();s.addRange(r);document.execCommand('copy');s.removeAllRanges();d.remove()}
+   alert('Rich content copied for SharePoint.');
+ }catch{alert('Clipboard blocked. Use the HTML tab or manually select and copy the editor content.')}
+}
+$('copyCurrentEditor').onclick=()=>{
+ if(!project.webparts.length)return alert('No web part selected.');
+ const currentHtml=cleanForProject($('editor').innerHTML);
+ project.webparts[project.selected].editedHtml=currentHtml;
+ renderAll();
+ copyRich(currentHtml);
+};
+$('copySelected').onclick=()=>{if(project.webparts.length)copyRich(project.webparts[project.selected].editedHtml)};
+$('copyAll').onclick=()=>copyRich(composeWholePage(true));
+
+$('saveProject').onclick=()=>{
+ if(!project.webparts.length)return alert('No project to save.');
+ const blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download=`${(project.title||'SharePoint_Project').replace(/[^\w-]+/g,'_')}.spworkbench`;a.click();URL.revokeObjectURL(a.href);
+};
+$('openProject').onclick=()=>$('projectFile').click();
+$('projectFile').onchange=async e=>{
+ try{const f=e.target.files[0];if(!f)return;project=JSON.parse(await f.text());if(!project.imageQueue)project.imageQueue=[];rebuildImageQueue();renderAll();setStatus(`Opened local project "${project.title}".`,'good')}
+ catch(err){setStatus('Could not open project: '+err.message,'bad')}
+};
+$('newProject').onclick=()=>{if(confirm('Start a new project? Unsaved changes will be lost.')){project={version:1,title:'',pageUrl:'',loadedAt:'',originalCanvas:'',webparts:[],selected:0,imageQueue:[]};renderAll();setStatus('New blank project.','')}};
+
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));
+ ['editPane','pagePane','previewPane','htmlPane','comparePane','queuePane'].forEach(id=>$(id).classList.toggle('hidden',id!==b.dataset.tab));
+});
+renderAll();
+})();
+</script>
+</body>
+</html>
