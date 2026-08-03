@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SharePoint Publisher's Workbench - Edit Test</title>
+<style>
+:root{--blue:#0f6cbd;--dark:#12344d;--bg:#f4f6f8;--panel:#fff;--border:#d6dde6;--muted:#667085;--good:#107c10;--warn:#986f0b;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:#242424}
+header{background:var(--dark);color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:21px;margin:0}header small{opacity:.85}.badge{background:#fff3cd;color:#7a5200;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}
+main{max-width:1500px;margin:auto;padding:18px}.card{background:var(--panel);border:1px solid var(--border);border-radius:9px;box-shadow:0 5px 18px rgba(0,0,0,.06);margin-bottom:14px}
+.card h2{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;background:#f8fafc}.body{padding:14px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}input,textarea,button{font:inherit}
+input,textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:9px;background:#fff}textarea{min-height:180px;resize:vertical;font-family:Consolas,monospace;font-size:12px}
+button{border:1px solid var(--border);border-radius:6px;background:#fff;padding:9px 12px;font-weight:700;cursor:pointer}button:hover{background:#f1f5f9}button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:var(--blue);color:#fff;border-color:var(--blue)}.primary:hover{background:#0b5594}.danger{background:#b42318;color:#fff;border-color:#b42318}.danger:hover{background:#8f1d14}
+.status{padding:9px 10px;border:1px solid #bfd7ee;background:#eef6ff;border-radius:6px;font-size:13px}.good{border-color:#afd7af;background:#edf7ed;color:#0b5d1e}.warn{border-color:#ead18a;background:#fff8e1;color:#6d5100}.bad{border-color:#efb2ac;background:#fdecec;color:#8f1d14}
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}.metric{border:1px solid var(--border);border-radius:7px;padding:10px;background:#fff}.metric strong{display:block;font-size:20px}.metric span{font-size:12px;color:var(--muted)}
+.workspace{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px}.list{max-height:720px;overflow:auto}.item{border:1px solid var(--border);border-radius:7px;padding:10px;margin-bottom:8px;cursor:pointer;background:#fff}.item:hover{background:#f7fafc}.item.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(15,108,189,.12)}.item h3{font-size:13px;margin:0 0 5px}.item p{margin:0;color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:5px;border-bottom:1px solid var(--border);padding:8px 10px 0;flex-wrap:wrap}.tabs button.active{background:#e8f1fb;color:#0b4f8a}
+.pane{padding:16px;min-height:620px}.hidden{display:none}
+#pageVisual,#webpartVisual,#editor{line-height:1.45}#pageVisual img,#webpartVisual img,#editor img{max-width:100%;height:auto}
+#pageVisual table,#webpartVisual table,#editor table{border-collapse:collapse;max-width:100%}#pageVisual td,#pageVisual th,#webpartVisual td,#webpartVisual th,#editor td,#editor th{border:1px solid #bbb;padding:7px}
+#editor{min-height:520px;border:1px solid var(--border);border-radius:6px;padding:18px;background:#fff;outline:none}.code{width:100%;min-height:540px;font-family:Consolas,monospace;font-size:12px}
+.toolbar{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}.toolbar button{padding:7px 10px}.small{font-size:12px;color:var(--muted)}details{margin-top:10px}summary{cursor:pointer;font-weight:700}
+.savebox{border:2px solid #ead18a;background:#fffaf0;border-radius:8px;padding:13px;margin-top:12px}.savebox label{display:block;margin:8px 0;font-size:13px}
+@media(max-width:1000px){.workspace{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header><div><h1>SharePoint Publisher's Workbench</h1><small>Connected Text web-part edit feasibility test</small></div><span class="badge">TEST PAGES ONLY</span></header>
+<main>
+
+<section class="card">
+<h2>1. Load a SharePoint page</h2>
+<div class="body">
+<div class="row"><input id="pageUrl" type="url" placeholder="https://myteam.../sites/.../SitePages/Test-Page.aspx"><button id="load" class="primary">Load page</button></div>
+<div id="status" class="status" style="margin-top:10px">Use a safe test page. Loading is read-only until Save Draft is selected.</div>
+<details><summary>Fallback for reading</summary>
+<div class="row"><input id="restUrl" readonly><button id="copyRest">Copy REST URL</button></div>
+<textarea id="rawResponse" placeholder="Paste REST XML or JSON response"></textarea><button id="parsePasted">Parse response</button>
+</details>
+</div>
+</section>
+
+<section class="card"><h2>Page summary</h2><div class="body"><div class="metrics">
+<div class="metric"><strong id="mParts">0</strong><span>Text web parts</span></div><div class="metric"><strong id="mLinks">0</strong><span>Links</span></div>
+<div class="metric"><strong id="mImages">0</strong><span>Images</span></div><div class="metric"><strong id="mTables">0</strong><span>Tables</span></div>
+<div class="metric"><strong id="mHeadings">0</strong><span>Headings</span></div><div class="metric"><strong id="mChanged">0</strong><span>Changed web parts</span></div>
+</div></div></section>
+
+<div class="workspace">
+<section class="card"><h2>Text web parts</h2><div class="body list" id="webpartList"><div class="small">No page loaded.</div></div></section>
+<section class="card">
+<div class="tabs">
+<button class="active" data-tab="editPane">Edit selected web part</button>
+<button data-tab="pagePane">Entire page</button>
+<button data-tab="visualPane">Selected preview</button>
+<button data-tab="codePane">Selected HTML</button>
+<button data-tab="canvasPane">CanvasContent1</button>
+</div>
+
+<div id="editPane" class="pane">
+<div class="toolbar">
+<button data-cmd="bold"><b>B</b></button><button data-cmd="italic"><i>I</i></button><button data-cmd="underline"><u>U</u></button>
+<button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button>
+<button data-block="h2">H2</button><button data-block="h3">H3</button><button data-block="p">Paragraph</button>
+<button id="addLink">Link</button><button data-cmd="unlink">Unlink</button><button data-cmd="undo">Undo</button><button data-cmd="redo">Redo</button>
+</div>
+<div id="editor" contenteditable="true"></div>
+<div class="row" style="margin-top:10px"><button id="applyLocal" class="primary">Apply changes locally</button><button id="resetSelected">Reset selected web part</button></div>
+<div id="editStatus" class="status" style="margin-top:10px">Select a Text web part.</div>
+
+<div class="savebox">
+<strong>Direct SharePoint Save Draft test</strong>
+<p class="small">This attempts to update CanvasContent1, creates a local backup first, and does not call SharePoint publish or approve operations.</p>
+<label><input id="confirmTest" type="checkbox"> I confirm this is a disposable or approved test page.</label>
+<label>Type <b>SAVE TEST DRAFT</b></label>
+<input id="confirmText" type="text" placeholder="SAVE TEST DRAFT">
+<div class="row" style="margin-top:9px"><button id="downloadBackup">Download backup</button><button id="saveDraft" class="danger" disabled>Save Draft to SharePoint</button></div>
+<div id="saveStatus" class="status" style="margin-top:9px">Save is locked.</div>
+</div>
+</div>
+
+<div id="pagePane" class="pane hidden"><div id="pageVisual"></div></div>
+<div id="visualPane" class="pane hidden"><div id="webpartVisual"></div></div>
+<div id="codePane" class="pane hidden"><textarea id="selectedCode" class="code"></textarea><button id="applyCode" class="primary">Apply HTML locally</button></div>
+<div id="canvasPane" class="pane hidden"><textarea id="canvasCode" class="code" readonly></textarea></div>
+</section>
+</div>
+</main>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+let textParts=[],currentIndex=-1,canvasDoc=null,originalCanvas='',currentCanvas='',pageMeta=null,changed=new Set();
+
+function setStatus(msg,type=''){const s=$('status');s.textContent=msg;s.className='status'+(type?' '+type:'')}
+function derive(pageUrl){
+ const u=new URL(pageUrl),marker='/SitePages/',idx=u.pathname.toLowerCase().indexOf(marker.toLowerCase());
+ if(idx<0)throw new Error('URL must point to /SitePages/.');
+ const sitePath=u.pathname.slice(0,idx),filePath=u.pathname;
+ return {origin:u.origin,sitePath,filePath,api:`${u.origin}${sitePath}/_api/web/GetFileByServerRelativeUrl('${filePath.replace(/'/g,"''")}')/ListItemAllFields?$select=Id,Title,CanvasContent1,LayoutWebpartsContent,FileRef`};
+}
+function decode(v){const t=document.createElement('textarea');t.innerHTML=v;return t.value}
+function extractXml(text){
+ const d=new DOMParser().parseFromString(text,'application/xml');if(d.querySelector('parsererror'))throw new Error('Invalid XML.');
+ const ns=[...d.getElementsByTagName('*')],get=n=>ns.find(x=>x.localName===n)?.textContent||'';
+ const canvas=get('CanvasContent1');if(!canvas)throw new Error('CanvasContent1 not found.');
+ return{title:get('Title'),canvas:decode(canvas),id:get('Id'),fileRef:get('FileRef')};
+}
+function extractJson(text){const o=JSON.parse(text),d=o.d||o,c=d.CanvasContent1??d.canvasContent1;if(c==null)throw new Error('CanvasContent1 not found.');return{title:d.Title||'',canvas:c,id:d.Id,fileRef:d.FileRef}}
+function parseResponse(text){
+ const t=text.trim();const data=t.startsWith('<')?extractXml(t):extractJson(t);
+ pageMeta={...pageMeta,...data};originalCanvas=decode(data.canvas);currentCanvas=originalCanvas;parseCanvas();
+}
+function parseCanvas(){
+ const raw=currentCanvas.trim();textParts=[];changed.clear();
+ if(!raw.startsWith('<'))throw new Error('This edit test currently supports HTML-based CanvasContent1 only.');
+ canvasDoc=new DOMParser().parseFromString(raw,'text/html');
+ const controls=[...canvasDoc.querySelectorAll('[data-sp-canvascontrol]')];
+ controls.forEach((el,i)=>{
+   const rawData=el.getAttribute('data-sp-controldata')||'';let controlData={};try{controlData=JSON.parse(decode(rawData))}catch{}
+   const ct=controlData.controlType??controlData.ControlType;
+   const rich=!!el.querySelector('p,h1,h2,h3,h4,h5,h6,a,img,table,ul,ol,.imagePlugin,[data-imageurl]');
+   if((ct===4||rich)&&el.innerHTML.trim())textParts.push({element:el,originalHtml:el.innerHTML,controlData});
+ });
+ if(!textParts.length){
+   const body=canvasDoc.body;
+   textParts.push({element:body,originalHtml:body.innerHTML,controlData:{}});
+ }
+ render();
+}
+function summary(html){const d=document.createElement('div');d.innerHTML=html;return{links:d.querySelectorAll('a[href]').length,images:d.querySelectorAll('img,.imagePlugin,[data-imageurl]').length,tables:d.querySelectorAll('table').length,heads:d.querySelectorAll('h1,h2,h3,h4,h5,h6').length,text:(d.innerText||'').trim().replace(/\s+/g,' ')}}
+function serializeCanvas(){return canvasDoc.body.innerHTML}
+function render(){
+ $('webpartList').innerHTML='';let L=0,I=0,T=0,H=0;
+ textParts.forEach((p,i)=>{const s=summary(p.element.innerHTML);L+=s.links;I+=s.images;T+=s.tables;H+=s.heads;
+  const el=document.createElement('div');el.className='item';el.innerHTML=`<h3>Text web part ${i+1}${changed.has(i)?' *':''}</h3><p>${s.text.slice(0,120)||'(No visible text)'}</p><p>${s.links} links · ${s.images} images · ${s.tables} tables</p>`;el.onclick=()=>selectPart(i);$('webpartList').appendChild(el);
+ });
+ $('mParts').textContent=textParts.length;$('mLinks').textContent=L;$('mImages').textContent=I;$('mTables').textContent=T;$('mHeadings').textContent=H;$('mChanged').textContent=changed.size;
+ updateViews();if(textParts.length)selectPart(0);
+ setStatus(`Loaded ${textParts.length} Text web part(s) from "${pageMeta.title||'page'}".`,'good');
+}
+function updateViews(){currentCanvas=serializeCanvas();$('pageVisual').innerHTML=currentCanvas;$('canvasCode').value=currentCanvas}
+function selectPart(i){
+ currentIndex=i;document.querySelectorAll('.item').forEach((x,n)=>x.classList.toggle('active',n===i));
+ const h=textParts[i].element.innerHTML;$('editor').innerHTML=h;$('webpartVisual').innerHTML=h;$('selectedCode').value=h;
+ $('editStatus').textContent=`Editing Text web part ${i+1}. Changes remain local until Apply changes locally.`;$('editStatus').className='status';
+}
+function applyHtml(h){
+ if(currentIndex<0)return;textParts[currentIndex].element.innerHTML=h;changed.add(currentIndex);currentCanvas=serializeCanvas();
+ $('webpartVisual').innerHTML=h;$('selectedCode').value=h;$('mChanged').textContent=changed.size;updateViews();renderListOnly();
+ $('editStatus').textContent='Changes applied locally. SharePoint has not been updated.';$('editStatus').className='status good';
+}
+function renderListOnly(){
+ document.querySelectorAll('#webpartList .item').forEach((el,i)=>{
+   const s=summary(textParts[i].element.innerHTML);
+   el.innerHTML=`<h3>Text web part ${i+1}${changed.has(i)?' *':''}</h3><p>${s.text.slice(0,120)||'(No visible text)'}</p><p>${s.links} links · ${s.images} images · ${s.tables} tables</p>`;
+ });
+}
+document.querySelectorAll('[data-cmd]').forEach(b=>b.onclick=()=>{editor.focus();document.execCommand(b.dataset.cmd,false,null)});
+document.querySelectorAll('[data-block]').forEach(b=>b.onclick=()=>{editor.focus();document.execCommand('formatBlock',false,b.dataset.block)});
+$('addLink').onclick=()=>{const u=prompt('Link URL:');if(u){editor.focus();document.execCommand('createLink',false,u)}};
+$('applyLocal').onclick=()=>applyHtml($('editor').innerHTML);
+$('applyCode').onclick=()=>{applyHtml($('selectedCode').value);$('editor').innerHTML=$('selectedCode').value};
+$('resetSelected').onclick=()=>{if(currentIndex<0)return;const h=textParts[currentIndex].originalHtml;textParts[currentIndex].element.innerHTML=h;changed.delete(currentIndex);selectPart(currentIndex);updateViews();renderListOnly();$('mChanged').textContent=changed.size};
+function backup(){
+ const blob=new Blob([originalCanvas],{type:'text/html'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(pageMeta.title||'SharePoint-Page').replace(/[^\w-]+/g,'_')}_CanvasContent1_backup.html`;a.click();URL.revokeObjectURL(a.href);
+}
+$('downloadBackup').onclick=backup;
+function unlock(){ $('saveDraft').disabled=!($('confirmTest').checked&&$('confirmText').value.trim()==='SAVE TEST DRAFT'&&changed.size>0)}
+$('confirmTest').onchange=unlock;$('confirmText').oninput=unlock;
+
+async function post(url,body,headers={}){
+ const r=await fetch(url,{method:'POST',credentials:'include',headers:{Accept:'application/json;odata=verbose',...headers},body});
+ const text=await r.text();if(!r.ok)throw new Error(`${r.status} ${r.statusText}${text?': '+text.slice(0,400):''}`);return text;
+}
+async function saveDraft(){
+ try{
+   const d=derive($('pageUrl').value.trim());$('saveStatus').textContent='Creating local backup…';backup();
+   $('saveStatus').textContent='Requesting SharePoint form digest…';
+   const context=JSON.parse(await post(`${d.origin}${d.sitePath}/_api/contextinfo`,null,{'Content-Type':'application/json;odata=verbose'}));
+   const digest=context.d.GetContextWebInformation.FormDigestValue;
+   const fileApi=`${d.origin}${d.sitePath}/_api/web/GetFileByServerRelativeUrl('${d.filePath.replace(/'/g,"''")}')`;
+
+   $('saveStatus').textContent='Checking out test page…';
+   try{await post(`${fileApi}/CheckOut()`,null,{'X-RequestDigest':digest})}catch(e){console.warn('Checkout warning',e)}
+
+   $('saveStatus').textContent='Updating CanvasContent1…';
+   const updateBody=JSON.stringify({formValues:[{FieldName:'CanvasContent1',FieldValue:serializeCanvas()}],bNewDocumentUpdate:false});
+   await post(`${fileApi}/ListItemAllFields/ValidateUpdateListItem()`,updateBody,{'Content-Type':'application/json;odata=verbose','X-RequestDigest':digest});
+
+   $('saveStatus').textContent='Checking in as a minor draft…';
+   try{await post(`${fileApi}/CheckIn(comment='Publisher Workbench test draft',checkintype=0)`,null,{'X-RequestDigest':digest})}catch(e){console.warn('Check-in warning',e)}
+
+   $('saveStatus').textContent='Draft save completed. Reopen the page in SharePoint and verify before publishing.';$('saveStatus').className='status good';
+   originalCanvas=serializeCanvas();textParts.forEach(p=>p.originalHtml=p.element.innerHTML);changed.clear();$('mChanged').textContent=0;renderListOnly();unlock();
+ }catch(e){
+   $('saveStatus').textContent=`Save Draft failed: ${e.message}`;$('saveStatus').className='status bad';
+ }
+}
+$('saveDraft').onclick=saveDraft;
+
+async function load(){
+ try{pageMeta=derive($('pageUrl').value.trim());$('restUrl').value=pageMeta.api;setStatus('Connecting…');
+ const r=await fetch(pageMeta.api,{headers:{Accept:'application/json;odata=verbose'},credentials:'include'});if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);parseResponse(await r.text());
+ }catch(e){setStatus(`Load failed: ${e.message}. Use the read fallback if necessary.`,'warn')}
+}
+$('load').onclick=load;$('pageUrl').oninput=()=>{try{$('restUrl').value=derive($('pageUrl').value.trim()).api}catch{$('restUrl').value=''}};
+$('copyRest').onclick=async()=>{await navigator.clipboard.writeText($('restUrl').value);alert('REST URL copied.')};
+$('parsePasted').onclick=()=>{try{pageMeta=derive($('pageUrl').value.trim());parseResponse($('rawResponse').value)}catch(e){setStatus(e.message,'bad')}};
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));['editPane','pagePane','visualPane','codePane','canvasPane'].forEach(id=>$(id).classList.toggle('hidden',id!==b.dataset.tab))});
+})();
+</script>
+</body>
+</html>
