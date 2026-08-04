@@ -1,0 +1,1407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SharePoint Legacy Compare v8</title>
+<style>
+:root{--blue:#0f6cbd;--dark:#12344d;--bg:#f4f6f8;--panel:#fff;--border:#d6dde6;--muted:#667085;--good:#107c10;--warn:#986f0b;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:#242424}
+header{background:var(--dark);color:#fff;padding:15px 20px}header h1{margin:0;font-size:21px}header small{opacity:.85}
+main{max-width:1600px;margin:auto;padding:16px}.card{background:#fff;border:1px solid var(--border);border-radius:9px;margin-bottom:14px;box-shadow:0 5px 18px rgba(0,0,0,.06)}
+.card h2{margin:0;padding:11px 13px;border-bottom:1px solid var(--border);font-size:15px;background:#f8fafc}.body{padding:13px}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}button,input,textarea,select{font:inherit}
+button{border:1px solid var(--border);border-radius:6px;background:#fff;padding:8px 11px;font-weight:700;cursor:pointer}
+button:hover{background:#f1f5f9}.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+input,textarea,select{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;background:#fff}
+textarea{min-height:150px;resize:vertical;font-family:Consolas,monospace;font-size:12px}
+.status{padding:9px 10px;border:1px solid #bfd7ee;background:#eef6ff;border-radius:6px;font-size:13px}
+.good{border-color:#afd7af;background:#edf7ed;color:#0b5d1e}.warn{border-color:#ead18a;background:#fff8e1;color:#6d5100}.bad{border-color:#efb2ac;background:#fdecec;color:#8f1d14}
+.small{font-size:12px;color:var(--muted)}.hidden{display:none!important}
+.compare-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.compare-grid{display:grid;grid-template-columns:minmax(0,1fr) 8px minmax(0,1fr);min-height:760px}
+.compare-panel{border:1px solid var(--border);background:#fff;min-width:0;display:flex;flex-direction:column}
+.panel-header{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--border);background:#f8fafc;gap:10px}
+.panel-header select{max-width:230px}.panel-body{flex:1;min-height:680px;overflow:auto}
+.sp-layout{display:grid;grid-template-columns:260px minmax(0,1fr)}.sp-sidebar{border-right:1px solid var(--border);padding:10px;overflow:auto;max-height:720px}
+.sp-view{padding:14px;overflow:auto}.item{border:1px solid var(--border);border-radius:7px;padding:9px;margin-bottom:8px;cursor:pointer;background:#fff}
+.item.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(15,108,189,.12)}.item h3{font-size:13px;margin:0 0 4px}.item p{margin:0;color:var(--muted);font-size:12px}
+.drag-divider{background:#d9e2ec;cursor:col-resize;position:relative}.drag-divider:after{content:'⋮';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#667085;font-weight:700}
+.legacy-controls{padding:10px;border-bottom:1px solid var(--border)}.legacy-view{flex:1;position:relative;min-height:680px;overflow:auto}
+#legacyFrame{width:100%;height:720px;border:0;background:#fff}#legacyRendered,#legacyFlat{padding:16px;min-height:720px}
+.flat-section{margin:0 0 22px;padding:0 0 18px;border-bottom:2px solid #d6dde6}
+.flat-section>h2{margin:0 0 12px;padding:8px 10px;background:#eef4fa;border-left:4px solid var(--blue);font-size:20px}
+.flat-source-note{font-size:12px;color:var(--muted);margin-bottom:12px}
+.legacy-ui-ignored{display:none!important}
+#legacyFlat [hidden],#legacyFlat .hidden{display:block!important}
+#legacyRendered img,#legacyFlat img,#spSelectedView img,#spEntireView img{max-width:100%;height:auto}
+#legacyRendered table,#legacyFlat table,#spSelectedView table,#spEntireView table{border-collapse:collapse;max-width:100%}
+#legacyRendered td,#legacyRendered th,#legacyFlat td,#legacyFlat th,#spSelectedView td,#spSelectedView th,#spEntireView td,#spEntireView th{border:1px solid #bbb;padding:6px}
+.code{min-height:650px}
+.link-summary{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;margin-top:10px}
+.link-metric{border:1px solid var(--border);border-radius:7px;padding:10px;background:#fff}
+.link-metric strong{display:block;font-size:20px}
+.link-metric span{font-size:12px;color:var(--muted)}
+#linkComparisonTable{width:100%;border-collapse:collapse;background:#fff}
+#linkComparisonTable th{position:sticky;top:0;background:#f8fafc;z-index:1}
+#linkComparisonTable th,#linkComparisonTable td,
+#contentComparisonTable th,#contentComparisonTable td{border:1px solid var(--border);padding:7px;vertical-align:top;font-size:12px}
+#contentComparisonTable{width:100%;border-collapse:collapse;background:#fff}
+#contentComparisonTable th{position:sticky;top:0;background:#f8fafc;z-index:1}
+.content-summary{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:8px;margin-top:10px}
+#linkComparisonTable td.url-cell{max-width:340px;word-break:break-all}
+.status-pill{display:inline-block;border-radius:999px;padding:3px 7px;font-weight:700;font-size:11px}
+.status-missing{background:#fdecec;color:#8f1d14}
+.status-extra{background:#fff4ce;color:#6d5100}
+.status-duplicate{background:#e8f1fb;color:#0b4f8a}
+.status-matched{background:#edf7ed;color:#0b5d1e}
+.compare-highlight{outline:4px solid #d13438!important;outline-offset:4px;background:#fff4f4!important}
+.compare-location-highlight{outline:4px solid #0f6cbd!important;outline-offset:4px;background:#eef6ff!important}
+@media(max-width:1000px){.link-summary{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:1000px){.compare-grid{grid-template-columns:1fr}.drag-divider{display:none}.sp-layout{grid-template-columns:1fr}.sp-sidebar{border-right:0;border-bottom:1px solid var(--border);max-height:250px}}
+</style>
+</head>
+<body>
+<header><h1>SharePoint Legacy Compare v8</h1><small>Side-by-side SharePoint and legacy page viewer</small></header>
+<main>
+<section class="card">
+<h2>1. Load sources</h2>
+<div class="body">
+<div class="row">
+<div>
+<label class="small">SharePoint page URL</label>
+<input id="spUrl" placeholder="https://.../SitePages/Page.aspx">
+</div>
+<button id="loadSp" class="primary">Load SharePoint</button>
+<div>
+<label class="small">Legacy page URL</label>
+<input id="legacyUrl" placeholder="https://legacy-site/...">
+</div>
+<button id="loadLegacy" class="primary">Load legacy</button>
+</div>
+<div id="status" class="status" style="margin-top:9px">Load the SharePoint page through REST and the legacy page beside it.</div>
+<details>
+<summary>SharePoint REST fallback</summary>
+<div class="row"><input id="restUrl" readonly><button id="copyRest">Copy REST URL</button></div>
+<textarea id="rawResponse" placeholder="Paste SharePoint REST XML or JSON response"></textarea>
+<button id="parsePasted">Parse SharePoint response</button>
+</details>
+</div>
+</section>
+
+<section class="card">
+<h2>2. Review workspace</h2>
+<div class="body">
+<div class="compare-toolbar">
+<button id="viewerTab" class="primary">Side-by-side Viewer</button>
+<button id="linksTab">Link Comparison</button>
+<button id="contentTab">Content Discrepancy</button>
+</div>
+
+<div id="viewerWorkspace">
+<div class="compare-toolbar">
+<button id="split5050">50 / 50</button>
+<button id="sharePointWide">SharePoint wider</button>
+<button id="legacyWide">Legacy wider</button>
+<button id="swapSides">Swap sides</button>
+<button id="openLegacyTab">Open legacy in new tab</button>
+</div>
+<div id="compareGrid" class="compare-grid">
+<section id="sharePointPanel" class="compare-panel">
+<div class="panel-header">
+<div><strong>SharePoint</strong><div id="spSubtitle" class="small">REST API / CanvasContent1</div></div>
+<select id="spViewMode">
+<option value="selected">Selected web part</option>
+<option value="entire">Entire SharePoint page</option>
+<option value="html">Normalized HTML</option>
+</select>
+</div>
+<div class="panel-body sp-layout">
+<aside class="sp-sidebar"><div class="small" style="margin-bottom:6px">Text web parts</div><div id="webpartList"><div class="small">No page loaded.</div></div></aside>
+<div class="sp-view">
+<div id="spSelectedView"></div>
+<div id="spEntireView" class="hidden"></div>
+<textarea id="spHtmlView" class="code hidden" readonly></textarea>
+</div>
+</div>
+</section>
+
+<div id="dragDivider" class="drag-divider"></div>
+
+<section id="legacyPanel" class="compare-panel">
+<div class="panel-header">
+<div><strong>Legacy</strong><div id="legacySubtitle" class="small">Live URL or pasted HTML</div></div>
+<select id="legacyViewMode">
+<option value="flat">Flattened legacy view</option>
+<option value="iframe">Live legacy page</option>
+<option value="pasted">Pasted legacy HTML</option>
+<option value="source">Legacy source HTML</option>
+</select>
+</div>
+<div class="legacy-controls">
+<div id="legacyStatus" class="status">Enter the legacy URL. The tool will display the live page and can flatten pasted or captured HTML.</div>
+<div id="legacyCleanupSummary" class="status" style="margin-top:8px">
+Legacy UI cleanup has not been run.
+</div>
+<div class="row" style="margin-top:8px">
+<button id="flattenLegacy" class="primary">Flatten legacy content</button>
+<button id="showLiveLegacy">Show live legacy</button>
+</div>
+<details>
+<summary>Paste legacy HTML fallback</summary>
+<textarea id="legacyHtml" placeholder="Paste flattened or saved legacy HTML here"></textarea>
+<div class="row"><button id="renderLegacyHtml">Render pasted HTML</button><button id="clearLegacyHtml">Clear</button></div>
+</details>
+</div>
+<div class="legacy-view">
+<div id="legacyFlat"></div>
+<iframe id="legacyFrame" class="hidden" title="Legacy page"></iframe>
+<div id="legacyRendered" class="hidden"></div>
+<textarea id="legacySource" class="code hidden" readonly></textarea>
+</div>
+</section>
+</div>
+</div>
+
+<div id="linksWorkspace" class="hidden">
+<div class="compare-toolbar">
+<button id="runLinkComparison" class="primary">Run Link Comparison</button>
+<select id="linkFilter">
+<option value="all">All findings</option>
+<option value="missing">Missing in SharePoint</option>
+<option value="extra">Extra in SharePoint</option>
+<option value="duplicate">Duplicate count discrepancy</option>
+<option value="matched">Matched</option>
+</select>
+<button id="copyLinkResults">Copy Results</button>
+</div>
+
+<div class="link-summary">
+<div class="link-metric"><strong id="legacyLinkCount">0</strong><span>Legacy links</span></div>
+<div class="link-metric"><strong id="spLinkCount">0</strong><span>SharePoint links</span></div>
+<div class="link-metric"><strong id="matchedLinkCount">0</strong><span>Matched</span></div>
+<div class="link-metric"><strong id="missingLinkCount">0</strong><span>Missing in SharePoint</span></div>
+<div class="link-metric"><strong id="extraLinkCount">0</strong><span>Extra in SharePoint</span></div>
+<div class="link-metric"><strong id="duplicateLinkCount">0</strong><span>Duplicate count discrepancy</span></div>
+</div>
+
+<div id="linkComparisonStatus" class="status" style="margin:10px 0">
+Load both sources, then run the link comparison. Matching is based on normalized link text only; URLs are displayed for reference.
+</div>
+
+<div style="overflow:auto;max-height:700px">
+<table id="linkComparisonTable">
+<thead>
+<tr>
+<th>Status</th>
+<th>Link text</th>
+<th>Legacy URL</th>
+<th>SharePoint URL</th>
+<th>Legacy section</th>
+<th>SharePoint web part</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+<div id="contentWorkspace" class="hidden">
+<div class="compare-toolbar">
+<button id="runContentComparison" class="primary">Run Content Comparison</button>
+<select id="contentTypeFilter">
+<option value="all">All content types</option>
+<option value="heading">Headings</option>
+<option value="paragraph">Paragraphs</option>
+<option value="list-item">List items</option>
+<option value="table-row">Table rows</option>
+</select>
+<button id="copyContentResults">Copy Missing Content</button>
+</div>
+
+<div class="content-summary">
+<div class="link-metric"><strong id="legacyBlockCount">0</strong><span>Legacy content blocks</span></div>
+<div class="link-metric"><strong id="spBlockCount">0</strong><span>SharePoint content blocks</span></div>
+<div class="link-metric"><strong id="matchedBlockCount">0</strong><span>Matched blocks</span></div>
+<div class="link-metric"><strong id="missingBlockCount">0</strong><span>Missing in SharePoint</span></div>
+</div>
+
+<div id="contentComparisonStatus" class="status" style="margin:10px 0">
+Load both sources, then run the content comparison. Links, URLs, images, and visual formatting are ignored.
+</div>
+
+<div style="overflow:auto;max-height:700px">
+<table id="contentComparisonTable">
+<thead>
+<tr>
+<th>Status</th>
+<th>Content type</th>
+<th>Missing legacy content</th>
+<th>Legacy path</th>
+<th>Likely SharePoint web part</th>
+<th>Confidence</th>
+<th>Go To</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+</main>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+let project={title:'',pageUrl:'',webparts:[],selected:0};
+let linkComparisonResults=[];
+let contentComparisonResults=[];
+
+function setStatus(msg,type=''){const s=$('status');s.textContent=msg;s.className='status'+(type?' '+type:'')}
+function decode(v){const t=document.createElement('textarea');t.innerHTML=v;return t.value}
+function derive(url){
+ const u=new URL(url),marker='/SitePages/',idx=u.pathname.toLowerCase().indexOf(marker.toLowerCase());
+ if(idx<0)throw new Error('SharePoint URL must point to /SitePages/.');
+ const sitePath=u.pathname.slice(0,idx),filePath=u.pathname;
+ return `${u.origin}${sitePath}/_api/web/GetFileByServerRelativeUrl('${filePath.replace(/'/g,"''")}')/ListItemAllFields?$select=Title,CanvasContent1`;
+}
+function extractXml(text){
+ const d=new DOMParser().parseFromString(text,'application/xml');
+ if(d.querySelector('parsererror'))throw new Error('Invalid XML.');
+ const nodes=[...d.getElementsByTagName('*')];
+ const get=n=>nodes.find(x=>x.localName===n)?.textContent||'';
+ const canvas=get('CanvasContent1');if(!canvas)throw new Error('CanvasContent1 not found.');
+ return{title:get('Title'),canvas:decode(canvas)};
+}
+function extractJson(text){
+ const o=JSON.parse(text),d=o.d||o,c=d.CanvasContent1??d.canvasContent1;
+ if(c==null)throw new Error('CanvasContent1 not found.');
+ return{title:d.Title||'',canvas:c};
+}
+function normalizeHtml(raw){
+ const holder=document.createElement('div');holder.innerHTML=String(raw||'');
+ const walker=document.createTreeWalker(holder,NodeFilter.SHOW_TEXT,null),nodes=[];
+ while(walker.nextNode())nodes.push(walker.currentNode);
+ nodes.forEach(n=>n.nodeValue=String(n.nodeValue||'').replace(/\\n/g,' ').replace(/\\t/g,' ').replace(/[ \t]{2,}/g,' '));
+ holder.querySelectorAll('p,div,li').forEach(el=>{
+   const has=el.querySelector('img,table,ul,ol,a[href],br');
+   if(!has && !(el.textContent||'').replace(/\s+/g,'').trim())el.remove();
+ });
+ return holder.innerHTML;
+}
+function parseResponse(text){
+ const t=text.trim(),data=t.startsWith('<')?extractXml(t):extractJson(t);
+ const doc=new DOMParser().parseFromString(decode(data.canvas),'text/html');
+ const parts=[];
+ [...doc.querySelectorAll('[data-sp-canvascontrol]')].forEach((el,i)=>{
+   const raw=el.getAttribute('data-sp-controldata')||'';let meta={};try{meta=JSON.parse(decode(raw))}catch{}
+   const ct=meta.controlType??meta.ControlType;
+   const rich=!!el.querySelector('p,h1,h2,h3,h4,h5,h6,a,img,table,ul,ol,.imagePlugin,[data-imageurl]');
+   if((ct===4||rich)&&el.innerHTML.trim())parts.push({html:normalizeHtml(el.innerHTML)});
+ });
+ if(!parts.length&&doc.body.innerHTML.trim())parts.push({html:normalizeHtml(doc.body.innerHTML)});
+ project={title:data.title,pageUrl:$('spUrl').value.trim(),webparts:parts,selected:0};
+ renderSharePoint();
+ setStatus(`Loaded ${parts.length} SharePoint web part(s).`,'good');
+}
+function summary(html){
+ const d=document.createElement('div');d.innerHTML=html;
+ return{text:(d.innerText||'').trim().replace(/\s+/g,' '),links:d.querySelectorAll('a[href]').length,images:d.querySelectorAll('img,.imagePlugin,[data-imageurl]').length,tables:d.querySelectorAll('table').length};
+}
+function hydrate(container){
+ container.querySelectorAll('.imagePlugin,[data-imageurl]').forEach(block=>{
+   if(block.querySelector('img[data-preview]'))return;
+   const raw=block.getAttribute('data-imageurl')||block.querySelector('img')?.src||'';
+   if(!raw)return;
+   const img=document.createElement('img');img.dataset.preview='true';
+   try{img.src=raw.startsWith('/')?new URL(project.pageUrl).origin+raw:new URL(raw,project.pageUrl).href}catch{img.src=raw}
+   img.alt=block.getAttribute('data-alttext')||'';
+   block.appendChild(img);
+ });
+}
+function renderSharePoint(){
+ const list=$('webpartList');list.innerHTML='';
+ if(!project.webparts.length){list.innerHTML='<div class="small">No page loaded.</div>';return}
+ project.webparts.forEach((p,i)=>{
+   const s=summary(p.html),el=document.createElement('div');
+   el.className='item'+(i===project.selected?' active':'');
+   el.innerHTML=`<h3>Text web part ${i+1}</h3><p>${escapeHtml(s.text.slice(0,100)||'(No visible text)')}</p><p>${s.links} links · ${s.images} images · ${s.tables} tables</p>`;
+   el.onclick=()=>{project.selected=i;renderSharePoint()};
+   list.appendChild(el);
+ });
+ const selected=project.webparts[project.selected]||project.webparts[0];
+ $('spSelectedView').innerHTML=selected.html;hydrate($('spSelectedView'));
+ $('spEntireView').innerHTML=project.webparts.map(p=>p.html).join('<hr>');hydrate($('spEntireView'));
+ $('spHtmlView').value=selected.html;
+ $('spSubtitle').textContent=`${project.title||'SharePoint page'} · ${project.webparts.length} web part(s)`;
+ applySpView();
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function applySpView(){
+ const m=$('spViewMode').value;
+ $('spSelectedView').classList.toggle('hidden',m!=='selected');
+ $('spEntireView').classList.toggle('hidden',m!=='entire');
+ $('spHtmlView').classList.toggle('hidden',m!=='html');
+}
+function applyLegacyView(){
+ const m=$('legacyViewMode').value;
+ $('legacyFlat').classList.toggle('hidden',m!=='flat');
+ $('legacyFrame').classList.toggle('hidden',m!=='iframe');
+ $('legacyRendered').classList.toggle('hidden',m!=='pasted');
+ $('legacySource').classList.toggle('hidden',m!=='source');
+}
+
+function isLegacyUiText(text){
+ const normalized=String(text||'')
+   .replace(/\s+/g,' ')
+   .trim()
+   .toLowerCase();
+
+ return [
+   'expand',
+   'collapse',
+   'details',
+   'show more',
+   'show less',
+   'click to expand',
+   'click to collapse',
+   'open',
+   'close'
+ ].includes(normalized);
+}
+
+function cleanLegacyClone(root,stats=null){
+ const cleanupStats=stats||{
+   scriptsRemoved:0,
+   controlsRemoved:0,
+   toggleTextRemoved:0,
+   hiddenStateRemoved:0,
+   emptyContainersRemoved:0
+ };
+
+ const hardRemoveSelector=[
+   'script','noscript','style','iframe','form','input','button','select','textarea','nav',
+   '.td-triggericon',
+   '.custom-wcm-wysiwyg-details-button-text',
+   '.custom-wcm-wysiwyg-details-button',
+   '.td-link-toggle',
+   '[class*="triggericon"]',
+   '[class*="details-button"]',
+   '[class*="toggle-button"]',
+   '[class*="expand-button"]',
+   '[class*="collapse-button"]',
+   '[aria-expanded]',
+   '[data-toggle]',
+   '[data-bs-toggle]'
+ ].join(',');
+
+ root.querySelectorAll(hardRemoveSelector).forEach(el=>{
+   if(el.matches('script,noscript,style,iframe'))cleanupStats.scriptsRemoved++;
+   else cleanupStats.controlsRemoved++;
+   el.remove();
+ });
+
+ root.querySelectorAll('a,span,div').forEach(el=>{
+   if(isLegacyUiText(el.textContent)){
+     cleanupStats.toggleTextRemoved++;
+     el.remove();
+   }
+ });
+
+ root.querySelectorAll('*').forEach(el=>{
+   [...el.attributes].forEach(attr=>{
+     const n=attr.name.toLowerCase();
+     const v=attr.value||'';
+
+     if(n.startsWith('on') || n==='hidden' || n==='aria-hidden' || n==='aria-expanded'){
+       cleanupStats.hiddenStateRemoved++;
+       el.removeAttribute(attr.name);
+     }
+
+     if(n==='style'){
+       const cleaned=v
+         .replace(/display\s*:\s*none\s*;?/ig,'')
+         .replace(/visibility\s*:\s*hidden\s*;?/ig,'')
+         .replace(/height\s*:\s*0(px)?\s*;?/ig,'')
+         .replace(/max-height\s*:\s*0(px)?\s*;?/ig,'')
+         .replace(/overflow\s*:\s*hidden\s*;?/ig,'');
+
+       if(cleaned.trim())el.setAttribute('style',cleaned);
+       else el.removeAttribute('style');
+     }
+   });
+
+   el.classList.remove(
+     'hidden','collapsed','collapse','tab-pane','fade','inactive',
+     'td-link-toggle','td-triggericon','custom-wcm-wysiwyg-details-button'
+   );
+ });
+
+ // Remove empty wrappers left behind after UI controls are stripped.
+ let removed=true;
+ while(removed){
+   removed=false;
+   root.querySelectorAll('div,span,p').forEach(el=>{
+     const hasMeaningfulMedia=el.querySelector('img,table,ul,ol,a[href],br');
+     const text=(el.textContent||'').replace(/\s+/g,'').trim();
+
+     if(!hasMeaningfulMedia && !text && !el.id){
+       el.remove();
+       cleanupStats.emptyContainersRemoved++;
+       removed=true;
+     }
+   });
+ }
+
+ return {root,cleanupStats};
+}
+function textLabel(el){
+ return (el.textContent||'')
+   .replace(/\s+/g,' ')
+   .trim();
+}
+
+function findPanelForTab(doc,tab){
+ const href=tab.getAttribute('href')||'';
+ const target=tab.getAttribute('data-target')||
+              tab.getAttribute('data-bs-target')||
+              tab.getAttribute('aria-controls')||
+              '';
+
+ const candidates=[];
+ if(href.startsWith('#'))candidates.push(href.slice(1));
+ if(target.startsWith('#'))candidates.push(target.slice(1));
+ else if(target)candidates.push(target);
+
+ for(const id of candidates){
+   const found=doc.getElementById(id);
+   if(found)return found;
+ }
+
+ const index=[...tab.parentElement?.parentElement?.querySelectorAll('a,button,[role="tab"]')||[]].indexOf(tab);
+ const panels=[...doc.querySelectorAll('[role="tabpanel"],.tab-pane,.tab-content>div')];
+ return index>=0 ? panels[index]||null : null;
+}
+
+function identifyLegacyTabs(doc){
+ const tabs=[...doc.querySelectorAll(
+   '[role="tab"],.tabs a,.tab a,.tab-link,.tablinks,.nav-tabs a,.ui-tabs-nav a,[data-toggle="tab"],[data-bs-toggle="tab"]'
+ )];
+
+ const seen=new Set();
+ const results=[];
+
+ tabs.forEach(tab=>{
+   const label=textLabel(tab);
+   const panel=findPanelForTab(doc,tab);
+   if(!label || !panel || seen.has(panel))return;
+   seen.add(panel);
+   results.push({label,panel});
+ });
+
+ return results;
+}
+
+function identifyExpandableSections(doc){
+ const results=[];
+ const seen=new Set();
+
+ const triggers=[...doc.querySelectorAll(
+   '[aria-controls],[data-target],[data-bs-target],.accordion-header,.accordion-button,.expand,.expandable-header,.toggle'
+ )];
+
+ triggers.forEach(trigger=>{
+   const label=textLabel(trigger);
+   let panel=null;
+
+   const target=trigger.getAttribute('aria-controls')||
+                trigger.getAttribute('data-target')||
+                trigger.getAttribute('data-bs-target')||
+                '';
+
+   if(target){
+     const id=target.replace(/^#/,'');
+     panel=doc.getElementById(id);
+   }
+
+   if(!panel){
+     panel=trigger.nextElementSibling;
+   }
+
+   if(!label || !panel || seen.has(panel))return;
+   seen.add(panel);
+   results.push({label,panel});
+ });
+
+ return results;
+}
+
+function flattenLegacyHtml(raw){
+ const parser=new DOMParser();
+ const doc=parser.parseFromString(String(raw||''),'text/html');
+ const output=document.createElement('div');
+ output.className='flat-document';
+
+ const cleanupStats={
+   scriptsRemoved:0,
+   controlsRemoved:0,
+   toggleTextRemoved:0,
+   hiddenStateRemoved:0,
+   emptyContainersRemoved:0
+ };
+
+ const title=doc.querySelector('h1')?.textContent?.trim() ||
+             doc.querySelector('title')?.textContent?.trim() ||
+             'Legacy page';
+
+ const titleEl=document.createElement('h1');
+ titleEl.textContent=title;
+ output.appendChild(titleEl);
+
+ const note=document.createElement('div');
+ note.className='flat-source-note';
+ note.textContent='Flattened legacy view: tabs and expandable sections are displayed as continuous content. Legacy UI controls are ignored.';
+ output.appendChild(note);
+
+ const tabs=identifyLegacyTabs(doc);
+ const expandables=identifyExpandableSections(doc);
+ const captured=new Set();
+
+ function appendSection(label,panel){
+   if(!panel || captured.has(panel))return;
+   captured.add(panel);
+
+   const section=document.createElement('section');
+   section.className='flat-section';
+
+   const heading=document.createElement('h2');
+   heading.textContent=label||'Section';
+   section.appendChild(heading);
+
+   const cloneResult=cleanLegacyClone(panel.cloneNode(true),cleanupStats);
+   section.appendChild(cloneResult.root);
+   output.appendChild(section);
+ }
+
+ tabs.forEach(x=>appendSection(x.label,x.panel));
+ expandables.forEach(x=>appendSection(x.label,x.panel));
+
+ const main=doc.querySelector('main,#content,#main-content,.main-content,.content,.page-content,article') || doc.body;
+ const mainResult=cleanLegacyClone(main.cloneNode(true),cleanupStats);
+ const mainClone=mainResult.root;
+
+ mainClone.querySelectorAll(
+   '[role="tablist"],.tabs,.tab,.nav-tabs,.ui-tabs-nav,.accordion-header,.accordion-button'
+ ).forEach(el=>{
+   cleanupStats.controlsRemoved++;
+   el.remove();
+ });
+
+ const remainingText=(mainClone.textContent||'').replace(/\s+/g,' ').trim();
+ if(remainingText){
+   const section=document.createElement('section');
+   section.className='flat-section';
+   const heading=document.createElement('h2');
+   heading.textContent=tabs.length||expandables.length?'Other legacy content':'Legacy content';
+   section.appendChild(heading);
+   section.appendChild(mainClone);
+   output.appendChild(section);
+ }
+
+ const walker=document.createTreeWalker(output,NodeFilter.SHOW_TEXT,null);
+ const nodes=[];
+ while(walker.nextNode())nodes.push(walker.currentNode);
+
+ nodes.forEach(n=>{
+   n.nodeValue=String(n.nodeValue||'')
+     .replace(/\\n/g,' ')
+     .replace(/\\t/g,' ')
+     .replace(/[ \t]{2,}/g,' ');
+ });
+
+ // Final pass to remove any isolated UI text that survived cloning.
+ output.querySelectorAll('*').forEach(el=>{
+   if(isLegacyUiText(el.textContent) && !el.querySelector('p,li,table,ul,ol')){
+     cleanupStats.toggleTextRemoved++;
+     el.remove();
+   }
+ });
+
+ return {
+   html:output.innerHTML,
+   stats:cleanupStats
+ };
+}
+function showLegacyCleanupSummary(stats){
+ const s=stats||{};
+ $('legacyCleanupSummary').textContent=
+   `Legacy UI cleanup — Scripts/styles removed: ${s.scriptsRemoved||0} · `+
+   `Toggle controls removed: ${s.controlsRemoved||0} · `+
+   `Expand/Collapse/Details text removed: ${s.toggleTextRemoved||0} · `+
+   `Hidden-state attributes removed: ${s.hiddenStateRemoved||0} · `+
+   `Empty containers removed: ${s.emptyContainersRemoved||0}`;
+
+ $('legacyCleanupSummary').className='status good';
+}
+
+function flattenCurrentLegacy(){
+ const raw=$('legacyHtml').value.trim();
+
+ if(raw){
+   const result=flattenLegacyHtml(raw);
+   $('legacyFlat').innerHTML=result.html;
+   $('legacySource').value=result.html;
+   showLegacyCleanupSummary(result.stats);
+   $('legacyViewMode').value='flat';
+   applyLegacyView();
+   $('legacyStatus').textContent='Legacy HTML flattened successfully.';
+   $('legacyStatus').className='status good';
+   $('legacySubtitle').textContent='Flattened legacy content';
+   return;
+ }
+
+ $('legacyStatus').textContent=
+   'The live legacy page is cross-origin, so the browser cannot read its HTML directly. Use View Source / Save Page / your legacy parser, then paste the HTML into the fallback box and click Flatten legacy content.';
+ $('legacyStatus').className='status warn';
+}
+
+
+function normalizeLinkText(value){
+ return String(value||'')
+   .replace(/\s+/g,' ')
+   .trim()
+   .toLowerCase();
+}
+
+function normalizeUrlForCompare(value,baseUrl){
+ const raw=String(value||'').trim();
+ if(!raw)return '';
+
+ if(/^javascript:/i.test(raw))return '';
+ if(/^mailto:/i.test(raw))return raw.toLowerCase();
+ if(/^tel:/i.test(raw))return raw.toLowerCase();
+
+ try{
+   const u=new URL(raw,baseUrl||location.href);
+   u.hash='';
+
+   // Remove common tracking parameters but keep functional parameters.
+   ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(p=>u.searchParams.delete(p));
+
+   let result=u.href;
+   if(result.endsWith('/'))result=result.slice(0,-1);
+   return result.toLowerCase();
+ }catch{
+   return raw.replace(/\/$/,'').toLowerCase();
+ }
+}
+
+function displayUrl(value){
+ return String(value||'').trim();
+}
+
+function getSharePointLinks(){
+ const links=[];
+
+ project.webparts.forEach((part,index)=>{
+   const holder=document.createElement('div');
+   holder.innerHTML=part.html;
+
+   holder.querySelectorAll('a[href]').forEach((a,linkIndex)=>{
+     const href=a.getAttribute('href')||'';
+     const normalizedUrl=normalizeUrlForCompare(href,project.pageUrl);
+     if(!normalizedUrl)return;
+
+     const text=(a.innerText||a.textContent||a.getAttribute('aria-label')||a.getAttribute('title')||'').replace(/\s+/g,' ').trim();
+
+     links.push({
+       side:'sharepoint',
+       text,
+       normalizedText:normalizeLinkText(text),
+       url:displayUrl(href),
+       normalizedUrl,
+       section:`Text web part ${index+1}`,
+       index:linkIndex
+     });
+   });
+ });
+
+ return links;
+}
+
+function getLegacyComparisonRoot(){
+ const mode=$('legacyViewMode').value;
+
+ if(mode==='flat' && $('legacyFlat').innerHTML.trim())return $('legacyFlat');
+ if(mode==='pasted' && $('legacyRendered').innerHTML.trim())return $('legacyRendered');
+
+ // The iframe cannot usually be read cross-origin.
+ try{
+   const doc=$('legacyFrame').contentDocument;
+   if(doc?.body)return doc.body;
+ }catch{}
+
+ return null;
+}
+
+function getLegacyLinks(){
+ const root=getLegacyComparisonRoot();
+ if(!root)return [];
+
+ const baseUrl=$('legacyUrl').value.trim()||location.href;
+ const links=[];
+
+ root.querySelectorAll('a[href]').forEach((a,index)=>{
+   const href=a.getAttribute('href')||'';
+   const normalizedUrl=normalizeUrlForCompare(href,baseUrl);
+   if(!normalizedUrl)return;
+
+   const text=(a.innerText||a.textContent||a.getAttribute('aria-label')||a.getAttribute('title')||'').replace(/\s+/g,' ').trim();
+   const section=a.closest('.flat-section');
+   const sectionName=section?.querySelector('h2')?.textContent?.trim() || 'Legacy content';
+
+   links.push({
+     side:'legacy',
+     text,
+     normalizedText:normalizeLinkText(text),
+     url:displayUrl(href),
+     normalizedUrl,
+     section:sectionName,
+     index
+   });
+ });
+
+ return links;
+}
+
+function compareLinks(){
+ const legacy=getLegacyLinks();
+ const sharepoint=getSharePointLinks();
+
+ if(!legacy.length && !$('legacyFlat').innerHTML.trim() && !$('legacyRendered').innerHTML.trim()){
+   $('linkComparisonStatus').textContent='Legacy content is not available for comparison. Flatten or render the legacy HTML first.';
+   $('linkComparisonStatus').className='status warn';
+   return;
+ }
+
+ // Group by normalized link text only. URLs are informational and are not used for matching.
+ const legacyGroups=new Map();
+ const spGroups=new Map();
+
+ legacy.forEach(link=>{
+   const key=link.normalizedText || '(no visible text)';
+   if(!legacyGroups.has(key))legacyGroups.set(key,[]);
+   legacyGroups.get(key).push(link);
+ });
+
+ sharepoint.forEach(link=>{
+   const key=link.normalizedText || '(no visible text)';
+   if(!spGroups.has(key))spGroups.set(key,[]);
+   spGroups.get(key).push(link);
+ });
+
+ const allKeys=new Set([...legacyGroups.keys(),...spGroups.keys()]);
+ const results=[];
+
+ [...allKeys].sort().forEach(key=>{
+   const legacyItems=legacyGroups.get(key)||[];
+   const spItems=spGroups.get(key)||[];
+   const matchedCount=Math.min(legacyItems.length,spItems.length);
+
+   // Matched occurrences.
+   for(let i=0;i<matchedCount;i++){
+     const l=legacyItems[i];
+     const s=spItems[i];
+     results.push({
+       status:'matched',
+       text:l.text||s.text||'(No visible text)',
+       legacyUrl:l.url,
+       spUrl:s.url,
+       legacySection:l.section,
+       spSection:s.section,
+       legacyCount:legacyItems.length,
+       spCount:spItems.length
+     });
+   }
+
+   // Missing in SharePoint.
+   for(let i=matchedCount;i<legacyItems.length;i++){
+     const l=legacyItems[i];
+     results.push({
+       status:spItems.length ? 'duplicate' : 'missing',
+       text:l.text||'(No visible text)',
+       legacyUrl:l.url,
+       spUrl:'',
+       legacySection:l.section,
+       spSection:'',
+       legacyCount:legacyItems.length,
+       spCount:spItems.length
+     });
+   }
+
+   // Extra in SharePoint.
+   for(let i=matchedCount;i<spItems.length;i++){
+     const s=spItems[i];
+     results.push({
+       status:legacyItems.length ? 'duplicate' : 'extra',
+       text:s.text||'(No visible text)',
+       legacyUrl:'',
+       spUrl:s.url,
+       legacySection:'',
+       spSection:s.section,
+       legacyCount:legacyItems.length,
+       spCount:spItems.length
+     });
+   }
+ });
+
+ linkComparisonResults=results;
+ renderLinkResults();
+
+ const matched=results.filter(x=>x.status==='matched').length;
+ const missing=results.filter(x=>x.status==='missing').length;
+ const extra=results.filter(x=>x.status==='extra').length;
+ const duplicate=results.filter(x=>x.status==='duplicate').length;
+
+ $('legacyLinkCount').textContent=legacy.length;
+ $('spLinkCount').textContent=sharepoint.length;
+ $('matchedLinkCount').textContent=matched;
+ $('missingLinkCount').textContent=missing;
+ $('extraLinkCount').textContent=extra;
+ $('duplicateLinkCount').textContent=duplicate;
+
+ $('linkComparisonStatus').textContent=
+   `Discrepancy report complete: ${missing} link text item(s) missing in SharePoint, `+
+   `${extra} extra link text item(s) in SharePoint, and `+
+   `${duplicate} duplicate-count discrepancy item(s).`;
+
+ $('linkComparisonStatus').className=(missing||extra||duplicate)?'status warn':'status good';
+}
+function statusLabel(status){
+ return {
+   missing:'Missing in SharePoint',
+   extra:'Extra in SharePoint',
+   duplicate:'Duplicate count discrepancy',
+   matched:'Matched'
+ }[status]||status;
+}
+function renderLinkResults(){
+ const filter=$('linkFilter').value;
+ const tbody=$('linkComparisonTable').querySelector('tbody');
+ tbody.innerHTML='';
+
+ const rows=linkComparisonResults.filter(r=>filter==='all'||r.status===filter);
+
+ rows.forEach(r=>{
+   const tr=document.createElement('tr');
+   tr.dataset.status=r.status;
+
+   tr.innerHTML=`
+     <td><span class="status-pill status-${r.status}">${escapeHtml(statusLabel(r.status))}</span></td>
+     <td>${escapeHtml(r.text||'(No visible text)')}</td>
+     <td class="url-cell">${r.legacyUrl?`<a href="${escapeHtml(r.legacyUrl)}" target="_blank">${escapeHtml(r.legacyUrl)}</a>`:'—'}</td>
+     <td class="url-cell">${r.spUrl?`<a href="${escapeHtml(r.spUrl)}" target="_blank">${escapeHtml(r.spUrl)}</a>`:'—'}</td>
+     <td>${escapeHtml(r.legacySection||'—')}</td>
+     <td>${escapeHtml(r.spSection||'—')}</td>
+   `;
+
+   if(r.status==='duplicate'){
+     tr.title=`Legacy count: ${r.legacyCount} · SharePoint count: ${r.spCount}`;
+   }
+
+   tbody.appendChild(tr);
+ });
+
+ if(!rows.length){
+   const tr=document.createElement('tr');
+   tr.innerHTML='<td colspan="6" class="small">No findings for the selected filter.</td>';
+   tbody.appendChild(tr);
+ }
+}
+
+function linkResultsAsText(){
+ const visible=linkComparisonResults.filter(r=>$('linkFilter').value==='all'||r.status===$('linkFilter').value);
+ const header='Status\tLink text\tLegacy URL\tSharePoint URL\tLegacy section\tSharePoint web part';
+ const lines=visible.map(r=>[
+   statusLabel(r.status),
+   r.text||'',
+   r.legacyUrl||'',
+   r.spUrl||'',
+   r.legacySection||'',
+   r.spSection||'',
+   r.legacyCount??'',
+   r.spCount??''
+ ].join('\t'));
+ return [header,...lines].join('\n');
+}
+
+
+function normalizeContentText(value){
+ return String(value||'')
+   .replace(/^\s*undefined\s*/i,'')
+   .replace(/^\s*you are on:\s*/i,'')
+   .replace(/\u00a0/g,' ')
+   .replace(/\\n/g,' ')
+   .replace(/\\t/g,' ')
+   .replace(/[^\S\r\n]+/g,' ')
+   .replace(/\s+/g,' ')
+   .trim()
+   .toLowerCase();
+}
+
+function visibleTextWithoutLinks(node){
+ const clone=node.cloneNode(true);
+ clone.querySelectorAll('a').forEach(a=>{
+   const text=document.createTextNode(a.textContent||'');
+   a.replaceWith(text);
+ });
+ clone.querySelectorAll('img,script,style,noscript').forEach(el=>el.remove());
+ return (clone.textContent||'').replace(/\s+/g,' ').trim();
+}
+
+function nearestHeadingPath(el,root){
+ const headings=[...root.querySelectorAll('h1,h2,h3,h4,h5,h6')];
+ const before=headings.filter(h=>{
+   if(h===el)return false;
+   const pos=h.compareDocumentPosition(el);
+   return pos & Node.DOCUMENT_POSITION_FOLLOWING;
+ });
+ const last=before.at(-1);
+ return last ? (last.textContent||'').replace(/\s+/g,' ').trim() : '';
+}
+
+function buildDomPath(el,root,section,type,index){
+ const parts=[];
+ if(section)parts.push(section);
+
+ const heading=nearestHeadingPath(el,root);
+ if(heading && heading!==section)parts.push(heading);
+
+ if(type==='list-item')parts.push(`List item ${index+1}`);
+ if(type==='table-row')parts.push(`Table row ${index+1}`);
+
+ return parts.join(' → ') || section || 'Content';
+}
+function extractContentBlocks(root,side){
+ const blocks=[];
+ if(!root)return blocks;
+
+ const pushBlock=(type,text,el,section,index=0)=>{
+   const clean=text.replace(/\s+/g,' ').trim();
+   const normalized=normalizeContentText(clean);
+   if(!normalized || normalized.length<2 || isLegacyUiText(normalized))return;
+
+   const path=buildDomPath(el,root,section,type,index);
+   const locator=`${type}-${blocks.length}`;
+
+   el.setAttribute('data-compare-locator',locator);
+
+   blocks.push({
+     side,
+     type,
+     text:clean,
+     normalized,
+     path,
+     section:section||'Content',
+     locator
+   });
+ };
+
+ const flatSections=[...root.querySelectorAll('.flat-section')];
+ const scopes=flatSections.length ? flatSections : [root];
+
+ scopes.forEach(scope=>{
+   const section=scope.querySelector(':scope > h2')?.textContent?.trim() ||
+                 scope.querySelector('h1,h2,h3')?.textContent?.trim() ||
+                 (side==='legacy'?'Legacy content':'SharePoint content');
+
+   scope.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach((h,i)=>{
+     pushBlock('heading',visibleTextWithoutLinks(h),h,section,i);
+   });
+
+   scope.querySelectorAll('p').forEach((p,i)=>{
+     if(p.closest('li,td,th'))return;
+     pushBlock('paragraph',visibleTextWithoutLinks(p),p,section,i);
+   });
+
+   scope.querySelectorAll('li').forEach((li,i)=>{
+     const clone=li.cloneNode(true);
+     clone.querySelectorAll('ul,ol').forEach(n=>n.remove());
+     pushBlock('list-item',visibleTextWithoutLinks(clone),li,section,i);
+   });
+
+   scope.querySelectorAll('tr').forEach((tr,i)=>{
+     const cells=[...tr.querySelectorAll(':scope > th,:scope > td')]
+       .map(c=>visibleTextWithoutLinks(c))
+       .filter(Boolean);
+     if(cells.length)pushBlock('table-row',cells.join(' | '),tr,section,i);
+   });
+ });
+
+ const seen=new Set();
+ return blocks.filter(b=>{
+   const key=`${b.type}|${b.normalized}|${b.path}`;
+   if(seen.has(key))return false;
+   seen.add(key);
+   return true;
+ });
+}
+function getSharePointContentBlocks(){
+ const all=[];
+
+ project.webparts.forEach((part,index)=>{
+   const holder=document.createElement('div');
+   holder.innerHTML=part.html;
+   const blocks=extractContentBlocks(holder,'sharepoint');
+
+   blocks.forEach(b=>{
+     b.webPart=`Text web part ${index+1}`;
+     b.spPath=`${b.webPart} → ${b.path}`;
+     b.partIndex=index;
+     all.push(b);
+   });
+ });
+
+ return all;
+}
+function getLegacyContentBlocks(){
+ const root=getLegacyComparisonRoot();
+ if(!root)return [];
+ return extractContentBlocks(root,'legacy');
+}
+
+function similarityScore(a,b){
+ if(a===b)return 1;
+ if(!a || !b)return 0;
+
+ const aWords=a.split(' ').filter(Boolean);
+ const bWords=b.split(' ').filter(Boolean);
+ const aSet=new Set(aWords);
+ const bSet=new Set(bWords);
+
+ let common=0;
+ aSet.forEach(w=>{if(bSet.has(w))common++});
+
+ const union=new Set([...aSet,...bSet]).size||1;
+ const jaccard=common/union;
+
+ // Give additional credit when one phrase contains the other.
+ const contains=a.includes(b)||b.includes(a) ? 0.2 : 0;
+ return Math.min(1,jaccard+contains);
+}
+
+function findLikelySharePointLocation(legacyBlock,spBlocks){
+ let best=null;
+ let bestScore=0;
+
+ spBlocks.forEach(sp=>{
+   let score=0;
+
+   score+=similarityScore(
+     normalizeContentText(legacyBlock.section),
+     normalizeContentText(sp.section||sp.webPart)
+   )*0.45;
+
+   score+=similarityScore(
+     normalizeContentText(legacyBlock.path),
+     normalizeContentText(sp.spPath||sp.path)
+   )*0.45;
+
+   if(sp.type===legacyBlock.type)score+=0.10;
+
+   if(score>bestScore){
+     bestScore=score;
+     best=sp;
+   }
+ });
+
+ return {
+   location:best?.webPart||'No likely web part identified',
+   path:best?.spPath||'No likely SharePoint path identified',
+   confidence:Math.round(Math.min(1,bestScore)*100),
+   partIndex:best?.partIndex ?? -1,
+   locator:best?.locator || ''
+ };
+}
+function runContentComparison(){
+ const legacy=getLegacyContentBlocks();
+ const sharepoint=getSharePointContentBlocks();
+
+ if(!legacy.length){
+   $('contentComparisonStatus').textContent='Legacy content is not available. Flatten or render the legacy HTML first.';
+   $('contentComparisonStatus').className='status warn';
+   return;
+ }
+
+ const usedSp=new Set();
+ const missing=[];
+ let matched=0;
+
+ legacy.forEach(l=>{
+   let exactIndex=sharepoint.findIndex((s,i)=>
+     !usedSp.has(i) &&
+     s.type===l.type &&
+     s.normalized===l.normalized
+   );
+
+   if(exactIndex<0){
+     exactIndex=sharepoint.findIndex((s,i)=>
+       !usedSp.has(i) &&
+       s.normalized===l.normalized
+     );
+   }
+
+   if(exactIndex>=0){
+     usedSp.add(exactIndex);
+     matched++;
+     return;
+   }
+
+   const likely=findLikelySharePointLocation(l,sharepoint);
+
+   missing.push({
+     status:'missing',
+     type:l.type,
+     text:l.text,
+     legacyPath:l.path,
+     spLocation:likely.location,
+     spPath:likely.path,
+     confidence:likely.confidence,
+     legacyLocator:l.locator,
+     spPartIndex:likely.partIndex,
+     spLocator:likely.locator
+   });
+ });
+
+ contentComparisonResults=missing;
+ renderContentResults();
+
+ $('legacyBlockCount').textContent=legacy.length;
+ $('spBlockCount').textContent=sharepoint.length;
+ $('matchedBlockCount').textContent=matched;
+ $('missingBlockCount').textContent=missing.length;
+
+ $('contentComparisonStatus').textContent=
+   `Content discrepancy report complete: ${missing.length} legacy content block(s) were not found in SharePoint.`;
+
+ $('contentComparisonStatus').className=missing.length?'status warn':'status good';
+}
+
+function contentTypeLabel(type){
+ return {
+   heading:'Heading',
+   paragraph:'Paragraph',
+   'list-item':'List item',
+   'table-row':'Table row'
+ }[type]||type;
+}
+
+function clearCompareHighlights(){
+ document.querySelectorAll('.compare-highlight,.compare-location-highlight').forEach(el=>{
+   el.classList.remove('compare-highlight','compare-location-highlight');
+ });
+}
+
+function goToContentFinding(index){
+ const finding=contentComparisonResults[index];
+ if(!finding)return;
+
+ clearCompareHighlights();
+
+ // Switch to the side-by-side workspace.
+ $('viewerWorkspace').classList.remove('hidden');
+ $('linksWorkspace').classList.add('hidden');
+ $('contentWorkspace').classList.add('hidden');
+ $('viewerTab').classList.add('primary');
+ $('linksTab').classList.remove('primary');
+ $('contentTab').classList.remove('primary');
+
+ // Show the relevant SharePoint web part.
+ if(finding.spPartIndex>=0){
+   project.selected=finding.spPartIndex;
+   renderSharePoint();
+   $('spViewMode').value='selected';
+   applySpView();
+ }
+
+ // Make sure the legacy flat view is visible.
+ $('legacyViewMode').value='flat';
+ applyLegacyView();
+
+ setTimeout(()=>{
+   const legacyTarget=$('legacyFlat').querySelector(`[data-compare-locator="${finding.legacyLocator}"]`);
+   if(legacyTarget){
+     legacyTarget.classList.add('compare-highlight');
+     legacyTarget.scrollIntoView({behavior:'smooth',block:'center'});
+   }
+
+   const spRoot=$('spSelectedView');
+   let spTarget=null;
+
+   if(finding.spLocator){
+     spTarget=spRoot.querySelector(`[data-compare-locator="${finding.spLocator}"]`);
+   }
+
+   if(!spTarget){
+     const search=normalizeContentText(finding.spPath);
+     const candidates=[...spRoot.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,tr')];
+     spTarget=candidates.find(el=>search.includes(normalizeContentText(el.textContent||'')));
+   }
+
+   if(spTarget){
+     spTarget.classList.add('compare-location-highlight');
+     spTarget.scrollIntoView({behavior:'smooth',block:'center'});
+   }
+
+   setStatus('Finding highlighted: red on legacy, blue on SharePoint. Capture your remediation screenshot now.','good');
+ },100);
+}
+
+function renderContentResults(){
+ const filter=$('contentTypeFilter').value;
+ const tbody=$('contentComparisonTable').querySelector('tbody');
+ tbody.innerHTML='';
+
+ const rows=contentComparisonResults
+   .map((r,index)=>({...r,_index:index}))
+   .filter(r=>filter==='all'||r.type===filter);
+
+ rows.forEach(r=>{
+   const tr=document.createElement('tr');
+   tr.innerHTML=`
+     <td><span class="status-pill status-missing">Missing in SharePoint</span></td>
+     <td>${escapeHtml(contentTypeLabel(r.type))}</td>
+     <td>${escapeHtml(r.text)}</td>
+     <td>${escapeHtml(r.legacyPath)}</td>
+     <td>${escapeHtml(r.spPath||r.spLocation)}</td>
+     <td>${r.confidence}%</td>
+     <td><button data-goto-content="${r._index}">Go To</button></td>
+   `;
+   tbody.appendChild(tr);
+ });
+
+ tbody.querySelectorAll('[data-goto-content]').forEach(btn=>{
+   btn.onclick=()=>goToContentFinding(+btn.dataset.gotoContent);
+ });
+
+ if(!rows.length){
+   const tr=document.createElement('tr');
+   tr.innerHTML='<td colspan="7" class="small">No missing content for the selected filter.</td>';
+   tbody.appendChild(tr);
+ }
+}
+function contentResultsAsText(){
+ const filter=$('contentTypeFilter').value;
+ const rows=contentComparisonResults.filter(r=>filter==='all'||r.type===filter);
+ const header='Status\tContent type\tMissing legacy content\tLegacy path\tLikely SharePoint web part\tConfidence';
+ const lines=rows.map(r=>[
+   'Missing in SharePoint',
+   contentTypeLabel(r.type),
+   r.text,
+   r.legacyPath,
+   r.spPath||r.spLocation,
+   `${r.confidence}%`
+ ].join('\t'));
+ return [header,...lines].join('\n');
+}
+
+async function loadSp(){
+ try{
+   const api=derive($('spUrl').value.trim());$('restUrl').value=api;setStatus('Loading SharePoint page…');
+   const r=await fetch(api,{headers:{Accept:'application/json;odata=verbose'},credentials:'include'});
+   if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);
+   parseResponse(await r.text());
+ }catch(e){setStatus(`SharePoint load failed: ${e.message}. Use the REST fallback if needed.`,'warn')}
+}
+function loadLegacy(){
+ const url=$('legacyUrl').value.trim();
+ if(!url){$('legacyStatus').textContent='Enter a legacy URL first.';$('legacyStatus').className='status warn';return}
+ try{
+   new URL(url);$('legacyFrame').src=url;$('legacyViewMode').value='iframe';applyLegacyView();
+   $('legacySubtitle').textContent=url;
+   $('legacyStatus').textContent='Attempting to display the legacy page. If embedding is blocked, open it in a new tab or paste the HTML.';
+   $('legacyStatus').className='status good';
+ }catch{$('legacyStatus').textContent='Invalid legacy URL.';$('legacyStatus').className='status bad'}
+}
+function renderLegacyHtml(){
+ const raw=$('legacyHtml').value;
+ if(!raw.trim())return alert('Paste legacy HTML first.');
+ const normalized=normalizeHtml(raw);
+ $('legacyRendered').innerHTML=normalized;
+ $('legacySource').value=normalized;
+
+ const result=flattenLegacyHtml(raw);
+ $('legacyFlat').innerHTML=result.html;
+ showLegacyCleanupSummary(result.stats);
+
+ $('legacyViewMode').value='flat';
+ applyLegacyView();
+ $('legacySubtitle').textContent='Flattened legacy content';
+ $('legacyStatus').textContent='Legacy HTML rendered and flattened successfully.';
+ $('legacyStatus').className='status good';
+}
+function setSplit(left){
+ $('compareGrid').style.gridTemplateColumns=`minmax(0,${left}fr) 8px minmax(0,${100-left}fr)`;
+}
+function setupDivider(){
+ let drag=false;const d=$('dragDivider'),g=$('compareGrid');
+ d.onmousedown=e=>{drag=true;e.preventDefault();document.body.style.cursor='col-resize'};
+ document.onmousemove=e=>{if(!drag)return;const r=g.getBoundingClientRect(),p=Math.min(80,Math.max(20,((e.clientX-r.left)/r.width)*100));setSplit(p)};
+ document.onmouseup=()=>{drag=false;document.body.style.cursor=''};
+}
+$('viewerTab').onclick=()=>{
+ $('viewerWorkspace').classList.remove('hidden');
+ $('linksWorkspace').classList.add('hidden');
+ $('contentWorkspace').classList.add('hidden');
+ $('viewerTab').classList.add('primary');
+ $('linksTab').classList.remove('primary');
+ $('contentTab').classList.remove('primary');
+};
+$('linksTab').onclick=()=>{
+ $('viewerWorkspace').classList.add('hidden');
+ $('linksWorkspace').classList.remove('hidden');
+ $('contentWorkspace').classList.add('hidden');
+ $('linksTab').classList.add('primary');
+ $('viewerTab').classList.remove('primary');
+ $('contentTab').classList.remove('primary');
+};
+$('contentTab').onclick=()=>{
+ $('viewerWorkspace').classList.add('hidden');
+ $('linksWorkspace').classList.add('hidden');
+ $('contentWorkspace').classList.remove('hidden');
+ $('contentTab').classList.add('primary');
+ $('viewerTab').classList.remove('primary');
+ $('linksTab').classList.remove('primary');
+};
+$('runContentComparison').onclick=runContentComparison;
+$('contentTypeFilter').onchange=renderContentResults;
+$('copyContentResults').onclick=async()=>{
+ if(!contentComparisonResults.length)return alert('Run the content comparison first.');
+ await navigator.clipboard.writeText(contentResultsAsText());
+ alert('Missing content report copied.');
+};
+$('runLinkComparison').onclick=compareLinks;
+$('linkFilter').onchange=renderLinkResults;
+$('copyLinkResults').onclick=async()=>{
+ if(!linkComparisonResults.length)return alert('Run the link comparison first.');
+ await navigator.clipboard.writeText(linkResultsAsText());
+ alert('Link comparison results copied.');
+};
+
+$('loadSp').onclick=loadSp;$('loadLegacy').onclick=loadLegacy;
+$('flattenLegacy').onclick=flattenCurrentLegacy;
+$('showLiveLegacy').onclick=()=>{$('legacyViewMode').value='iframe';applyLegacyView()};
+$('spUrl').oninput=()=>{try{$('restUrl').value=derive($('spUrl').value.trim())}catch{$('restUrl').value=''}};
+$('copyRest').onclick=async()=>{await navigator.clipboard.writeText($('restUrl').value);alert('REST URL copied.')};
+$('parsePasted').onclick=()=>{try{parseResponse($('rawResponse').value)}catch(e){setStatus(e.message,'bad')}};
+$('spViewMode').onchange=applySpView;$('legacyViewMode').onchange=applyLegacyView;
+$('renderLegacyHtml').onclick=renderLegacyHtml;$('clearLegacyHtml').onclick=()=>{$('legacyHtml').value='';$('legacyRendered').innerHTML='';$('legacySource').value=''};
+$('openLegacyTab').onclick=()=>{const u=$('legacyUrl').value.trim();if(!u)return alert('Enter a legacy URL first.');window.open(u,'_blank','noopener')};
+$('split5050').onclick=()=>setSplit(50);$('sharePointWide').onclick=()=>setSplit(65);$('legacyWide').onclick=()=>setSplit(35);
+$('swapSides').onclick=()=>{const g=$('compareGrid'),sp=$('sharePointPanel'),d=$('dragDivider'),lg=$('legacyPanel');if(g.firstElementChild===sp){g.insertBefore(lg,sp);g.insertBefore(d,sp)}else{g.insertBefore(sp,lg);g.insertBefore(d,lg)}};
+$('legacyViewMode').value='flat';setupDivider();applyLegacyView();
+})();
+</script>
+</body>
+</html>
